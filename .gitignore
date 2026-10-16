@@ -1,9 +1,5 @@
 /target
 .DS_Store
-
-# Original Sierra/Dynamix game data is copyrighted and never committed
-/untouched_original_1993_floppy_image/
-*.img
 SCRANTIC.SCR
 RESOURCE.MAP
 RESOURCE.001
