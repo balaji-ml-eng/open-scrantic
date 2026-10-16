@@ -138,7 +138,7 @@ In `SCRANTIC.INI` in the user configuration directory, on clean exit only.
 ## Documentation
 
 - [`docs/ENGINE.md`](docs/ENGINE.md) — recovered formats, VM semantics, story rules, timing.
-- [`CLAUDE.md`](CLAUDE.md) — architecture and conventions for contributors and coding agents.
+- [`AGENTS.md`](AGENTS.md) — architecture and conventions for contributors and coding agents.
 
 ## Contributing
 
