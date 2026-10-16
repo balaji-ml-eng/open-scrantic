@@ -1,87 +1,89 @@
-# Como o Johnny Castaway funciona
+# How Johnny Castaway works
 
-Notas da engenharia reversa do `SCRANTIC.SCR` (executável Win16 NE, Borland C++ 1991, 13 segmentos
-de código + DGROUP). Endereços no formato `segmento:offset`; `DS:xxxx` é o segmento de dados.
+Reverse-engineering notes on `SCRANTIC.SCR` (Win16 NE executable, Borland C++ 1991, 13 code
+segments + DGROUP). Addresses are written as `segment:offset`; `DS:xxxx` is the data segment.
 
-## Arquivos de recursos
+## Resource files
 
-- `RESOURCE.MAP`: cabeçalho de 6 bytes, nome do volume (13 bytes), `u16` contagem, entradas
-  `(u32 hash, u32 offset)`. No `RESOURCE.001`, cada recurso: nome (13 bytes), `u32` tamanho, dados.
-- Cada recurso é uma sequência de *chunks* `TAG:` + `u32` tamanho (bit 31 = contêiner).
-- Compressão (`BIN:`, `SCR:`, `TT3:`): byte de método + `u32` tamanho; 1 = RLE, 2 = LZW
-  (códigos de 9 a 12 bits LSB-first; o código 0x100 reinicia o dicionário e realinha o fluxo).
-- Imagens em 4 bpp (nibble alto primeiro); índice 0 (magenta) é transparente. Os chunks `VGA:`
-  são irrelevantes (ruído); a paleta `JOHNCAST.PAL` só usa 16 cores (6 bits por canal).
+- `RESOURCE.MAP`: 6-byte header, volume name (13 bytes), `u16` count, `(u32 hash, u32 offset)`
+  entries. In `RESOURCE.001`, each resource is: name (13 bytes), `u32` size, data.
+- Each resource is a sequence of `TAG:` chunks + `u32` size (bit 31 = container).
+- Compression (`BIN:`, `SCR:`, `TT3:`): method byte + `u32` size; 1 = RLE, 2 = LZW
+  (9–12-bit LSB-first codes; code 0x100 resets the dictionary and realigns the bit stream).
+- Images are 4 bpp (high nibble first); index 0 (magenta) is transparent. The `VGA:` chunks are
+  irrelevant (noise); the `JOHNCAST.PAL` palette only uses 16 colors (6 bits per channel).
 
-## TTM: scripts de animação (`seg12:040c`)
+## TTM: animation scripts (`seg12:040c`)
 
-- Instruções `u16`: o nibble baixo é o número de argumentos `i16` (0xF = string terminada em NUL,
-  preenchida até tamanho par). O script é dividido em *frames* em cada `0x0FF0` (UPDATE); `PAG:`
-  dá o número de frames.
-- Cada `0x1111 tag` define uma **cena** começando naquele frame. `0x1201` (GOTO) resolve para o
-  frame cujo **primeiro** opcode é `0x1101/0x1111` com aquela tag.
-- Um frame executado pela primeira vez tem efeitos colaterais (carregar imagens/telas, sons,
-  atraso aleatório); depois só redesenha (flag `+0x0E` do registro da cena).
-- Opcodes usados: sprites `0xA5x4` (bits 4–7 = espelhamento: 2 horizontal, 1 vertical), linha
-  `0xA0A4` (sem o ponto final, como `LineTo`), retângulo `0xA104`/`0xA114`, elipse
-  `0xA404/0xA424` (raio = h/2), pixel `0xA002`, clip `0x4004` (inclusivo), "copiar para o fundo"
-  `0x4204`, atraso `0x1021` (ticks de 16 ms), atraso aleatório `0x2022` (`a + rand % (b - a)`),
-  som `0xC051`, fim de cena `0x0110`, salvar/restaurar zona `0xA054/0xA064`.
-- Coordenadas de desenho, clip e cópia recebem o deslocamento da ilha (`origem.x + 1`, `origem.y`),
-  mais 272 px para cenas com a flag `0x400`.
+- `u16` instructions: the low nibble is the number of `i16` arguments (0xF = NUL-terminated string,
+  padded to an even size). The script is split into *frames* at each `0x0FF0` (UPDATE); `PAG:`
+  gives the frame count.
+- Each `0x1111 tag` defines a **scene** starting at that frame. `0x1201` (GOTO) resolves to the
+  frame whose **first** opcode is `0x1101/0x1111` with that tag.
+- A frame executed for the first time has side effects (loading images/screens, sounds, random
+  delay); afterwards it only redraws (flag `+0x0E` of the scene record).
+- Opcodes used: sprites `0xA5x4` (bits 4–7 = mirroring: 2 horizontal, 1 vertical), line
+  `0xA0A4` (end point not drawn, like `LineTo`), rectangle `0xA104`/`0xA114`, ellipse
+  `0xA404/0xA424` (radius = h/2), pixel `0xA002`, clip `0x4004` (inclusive), "copy to background"
+  `0x4204`, delay `0x1021` (16 ms ticks), random delay `0x2022` (`a + rand % (b - a)`),
+  sound `0xC051`, end of scene `0x0110`, save/restore zone `0xA054/0xA064`.
+- Drawing, clip and copy coordinates get the island offset (`origin.x + 1`, `origin.y`),
+  plus 272 px for scenes with flag `0x400`.
 
-## ADS: sequenciamento (`seg10`)
+## ADS: sequencing (`seg10`)
 
-- Seções (tags) separadas por `0xFFFF`. Linguagem em blocos: condições `0x13x0`
-  (`0x1330` nunca tocada, `0x1350` acabou de terminar, `0x1360` parada, `0x1370` rodando),
-  `AND 0x1420`/`OR 0x1430` avaliados da esquerda para a direita com curto-circuito,
-  `ELSE 0x1500`, `ENDIF 0x1510`, `RANDOM 0x3010 … 0x30FF` (pesos; `0x3020` = não fazer nada).
-- `0x2005 slot tag n`: inicia uma cena (`n=0` uma vez, `n>0` n vezes, `n<0` por −n ticks);
-  `0x2010` para; `0x4000/0x4010` traz a cena para frente/fundo; `0xF010` para uma tag;
-  `0xF200` inicia outra tag em paralelo.
-- Escalonador, a cada passo: propaga o estado das tags às suas cenas, **reavalia o script inteiro
-  de cada tag ativa**, e então executa (desenha) o frame atual de cada cena na ordem de desenho,
-  avançando quando o atraso venceu. Uma tag "acabou" quando nenhuma de suas cenas ainda roda
-  (cenas que fazem GOTO para o próprio frame contam como laço infinito e não bloqueiam).
+- Sections (tags) separated by `0xFFFF`. Block language: conditions `0x13x0`
+  (`0x1330` never played, `0x1350` just finished, `0x1360` stopped, `0x1370` running),
+  `AND 0x1420`/`OR 0x1430` evaluated left to right with short-circuiting,
+  `ELSE 0x1500`, `ENDIF 0x1510`, `RANDOM 0x3010 … 0x30FF` (weights; `0x3020` = do nothing).
+- `0x2005 slot tag n`: starts a scene (`n=0` once, `n>0` n times, `n<0` for −n ticks);
+  `0x2010` stops it; `0x4000/0x4010` brings the scene to the front/back; `0xF010` stops a tag;
+  `0xF200` starts another tag in parallel.
+- Scheduler, on every step: propagates tag state to their scenes, **re-evaluates the whole script
+  of every active tag**, then executes (draws) the current frame of every scene in drawing order,
+  advancing it when its delay has elapsed. A tag is "done" when none of its scenes is still running
+  (scenes that GOTO their own frame count as infinite loops and do not block).
 
-## História (`seg4`)
+## Story (`seg4`)
 
-- Catálogo de 80 cenas em `DS:1756` (17 bytes): peso, pontos/direções de início e fim, duração,
-  janela de fase do dia, dia da história, flags (papel: 1 início, 2 meio, 4 final, 8 repetível;
-  modificadores da ilha: maré, noite, sem ilha, sem jangada, ondas congeladas; restrições de
-  posição da ilha), id da ADS e tag. Cenas com ADS `0xFF` são pausas em pé (3–7 s).
-- Cada **sessão** escolhe: com 10% de chance o capítulo do dia, uma cena final, uma de abertura e
-  cenas de meio sorteadas por peso até gastar um orçamento de 300 unidades de duração, respeitando
-  a compatibilidade com a posição da ilha já decidida.
-- **Ciclo dia/noite**: 16 meias-horas a partir de `StartTime` (9:00 por padrão): 12 de dia
-  (`OCEAN0x.SCR` aleatório) e 4 de noite (`NIGHT.SCR`).
-- **Capítulos** (11): `NumDays` avança um por dia de calendário, desde que o capítulo atual já tenha
-  sido mostrado; depois do 11º recomeça. A jangada cresce com o dia (5 estágios).
-- **Feriados**: Halloween (29–31/10), Natal (23–25/12), Ano-novo (29/12–1/1), St. Patrick (15–17/3).
+- Catalogue of 80 scenes at `DS:1756` (17 bytes each): weight, start and end spots/headings,
+  duration, time-of-day window, story day, flags (role: 1 opening, 2 middle, 4 final,
+  8 repeatable; island modifiers: tide, night, no island, no raft, frozen waves; island position
+  constraints), ADS id and tag. Scenes with ADS `0xFF` are standing pauses (3–7 s).
+- Each **session** picks: with a 10% chance the chapter of the day, a final scene, an opening scene
+  and middle scenes drawn by weight until a budget of 300 duration units is spent, respecting
+  compatibility with the island position already decided.
+- **Day/night cycle**: 16 half-hours starting at `StartTime` (9:00 by default): 12 of day
+  (random `OCEAN0x.SCR`) and 4 of night (`NIGHT.SCR`).
+- **Chapters** (11): `NumDays` advances one per calendar day, as long as the current chapter has
+  already been shown; after the 11th it starts over. The raft grows with the day (5 stages).
+- **Holidays**: Halloween (Oct 29–31), Christmas (Dec 23–25), New Year (Dec 29–Jan 1),
+  St. Patrick's (Mar 15–17).
 
-## Caminhada
+## Walking
 
-Seis pontos na ilha; rotas por par (origem, destino) em `DS:0A96` com caminhos alternativos
-sorteados por porcentagem; 34 caminhos de frames `(sprite|espelho, x, y)`; giro pelo menor lado
-(aleatório a 180°). Quando os pés de Johnny estão acima de `origem.y + 293` e ele cruza o tronco,
-o tronco é redesenhado na frente dele.
+Six spots on the island; routes per (from, to) pair at `DS:0A96`, with alternative paths drawn by
+percentage; 34 frame paths `(sprite|mirror, x, y)`; turning the shortest way (random at 180°).
+When Johnny's feet are above `origin.y + 293` and he crosses the trunk, the trunk is redrawn in
+front of him.
 
-## Tempo e aleatoriedade
+## Timing and randomness
 
-- Tick de 16 ms (`4 × 1000/(13×18)` ms) para atrasos e temporizadores; o passo da história roda no
-  `WM_TIMER` de 50 ms (granularidade real de 55 ms no Windows 3.1). Ambos são emulados.
-- Gerador aditivo com atraso sobre uma tabela de 56 palavras (`DS:1CE6`), aquecido descartando
-  `time() & 0xFFFF` números.
-- Sons: recursos `WAVESFX1..25` (faltam 11 e 13), 8 bits, 11 025 Hz; um som novo corta o anterior.
-  `WAVESFX25` é o sino tocado quando começa o capítulo do dia.
+- 16 ms tick (`4 × 1000/(13×18)` ms) for delays and timers; the story step runs on the 50 ms
+  `WM_TIMER` (actual 55 ms granularity on Windows 3.1). Both are emulated.
+- Additive lagged generator over a 56-word table (`DS:1CE6`), warmed up by discarding
+  `time() & 0xFFFF` numbers.
+- Sounds: `WAVESFX1..25` resources (11 and 13 are missing), 8-bit, 11,025 Hz; a new sound cuts
+  the previous one. `WAVESFX25` is the chime played when the chapter of the day starts.
 
-## Diferenças deliberadas em relação ao original
+## Deliberate differences from the original
 
-- O original desenha com retângulos sujos em três buffers; aqui cada passo recompõe o quadro
-  inteiro (fundo + desenhos do passo). O resultado é o mesmo, exceto pequenos artefatos do
-  original (ex.: ondas da praia "voltando" ao primeiro quadro quando algo passa por cima).
-- A tela título fica 2 s (no hardware de 1993 ela ficava visível enquanto a primeira sessão carregava).
-- Elipses e linhas usam rasterização própria, que pode diferir de 1 px da do GDI.
-- Diálogo de configuração e senha do protetor de tela não foram reimplementados (as opções são
-  editáveis no INI). Recursos não usados por este jogo (paletas animadas, 256 cores, variáveis ADS)
-  não foram implementados.
+- The original draws with dirty rectangles across three buffers; here every step recomposes the
+  whole frame (background + that step's drawing). The result is the same, except for small
+  artifacts of the original (e.g. shore waves "reverting" to their first frame when something
+  passes over them).
+- The title screen stays up for 2 s (on 1993 hardware it was visible while the first session loaded).
+- Ellipses and lines use their own rasterization, which may differ by 1 px from GDI.
+- The configuration dialog and the screensaver password were not reimplemented (options can be
+  edited in the INI). Features this game does not use (animated palettes, 256 colors, ADS
+  variables) were not implemented.

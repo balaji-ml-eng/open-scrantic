@@ -1,50 +1,50 @@
 # open-scrantic
 
-Uma reimplementação moderna, em Rust, do *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993),
-o protetor de tela de Windows 3.1. O binário novo contém **apenas a lógica**: toda a arte, scripts,
-sons e tabelas do jogo são lidos dos **arquivos originais instalados**.
+A modern Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993), the
+Windows 3.1 screensaver. The new binary contains **only the logic**: all art, scripts, sounds and
+game tables are read from the **original installed files**.
 
-## Requisitos
+## Requirements
 
-- Rust 1.99.1 (fixado em `rust-toolchain.toml`)
-- Os arquivos da instalação original, num diretório:
+- Rust 1.99.1 (pinned in `rust-toolchain.toml`)
+- The files of the original installation, in one directory:
 
-| Arquivo        | Tamanho     | Conteúdo                                                        |
-|----------------|-------------|-----------------------------------------------------------------|
-| `SCRANTIC.SCR` | 295 952     | executável Win16 original (sons + tabelas de lógica)            |
-| `RESOURCE.MAP` | 1 461       | índice dos recursos                                             |
-| `RESOURCE.001` | 1 175 645   | imagens (BMP/SCR), paleta, scripts de animação (TTM/ADS)        |
+| File           | Size        | Contents                                                     |
+|----------------|-------------|--------------------------------------------------------------|
+| `SCRANTIC.SCR` | 295,952     | original Win16 executable (sounds + game-logic tables)       |
+| `RESOURCE.MAP` | 1,461       | resource index                                               |
+| `RESOURCE.001` | 1,175,645   | images (BMP/SCR), palette, animation scripts (TTM/ADS)       |
 
-## Uso
+## Usage
 
 ```sh
-cargo run --release -- /caminho/da/instalacao          # janela 640x480
-cargo run --release -- /caminho/da/instalacao --scale 2
-cargo run --release -- /caminho/da/instalacao --saver  # tela cheia, sai com qualquer entrada
+cargo run --release -- /path/to/install            # 640x480 window
+cargo run --release -- /path/to/install --scale 2
+cargo run --release -- /path/to/install --saver    # fullscreen, exits on any input
 ```
 
-Teclas (modo janela): `F`/`F11` alterna tela cheia, `Esc`/`Q` sai.
+Keys (windowed mode): `F`/`F11` toggles fullscreen, `Esc`/`Q` quits.
 
-O progresso da história e as opções ficam em `SCRANTIC.INI` no diretório de configuração do
-usuário (ex.: `~/Library/Application Support/open-scrantic/` no macOS), com as mesmas chaves do
+Story progress and options are stored in `SCRANTIC.INI` in the user configuration directory
+(e.g. `~/Library/Application Support/open-scrantic/` on macOS), using the same keys as the
 original: `Background`, `Clouds`, `Waves`, `Sounds`, `NumDays`, `Introduction`,
-`CurrentYear/Month/Day` e `StartTime`.
+`CurrentYear/Month/Day` and `StartTime`.
 
-## Desenvolvimento
+## Development
 
 ```sh
-OPEN_SCRANTIC_DATA=/caminho/da/instalacao cargo test           # testes com os dados reais
-OPEN_SCRANTIC_DEBUG=1 cargo run --release -- /caminho           # mostra o plano de cada sessão
-cargo run --release --example snapshot -- /caminho /tmp/out 2000 100 1000 42   # render headless em PNG
+OPEN_SCRANTIC_DATA=/path/to/install cargo test                  # tests against the real data
+OPEN_SCRANTIC_DEBUG=1 cargo run --release -- /path/to/install    # prints each session's plan
+cargo run --release --example snapshot -- /path/to/install /tmp/out 2000 100 1000 42   # headless PNG render
 ```
 
-Arquitetura:
+Architecture:
 
-- `src/assets/` — leitura dos arquivos originais: arquivo de recursos Dynamix (RLE/LZW, BMP, SCR,
-  PAL, TTM, ADS) e o executável NE (sons `WAVESFXn` e tabelas do segmento de dados).
-- `src/engine/` — o motor: VM de TTM (`ttm.rs`), VM de ADS e escalonador de cenas (`ads.rs`),
-  ilha e animações ambientes (`island.rs`), caminhada (`walk.rs`), planejamento da história
-  (`mod.rs`), gerador aleatório original (`rng.rs`), primitivas gráficas (`gfx.rs`), INI (`config.rs`).
-- `src/main.rs` — janela (winit + softbuffer), relógios e entrada; `src/audio.rs` — som (rodio).
+- `src/assets/` — reading the original files: the Dynamix resource archive (RLE/LZW, BMP, SCR,
+  PAL, TTM, ADS) and the NE executable (`WAVESFXn` sounds and data-segment tables).
+- `src/engine/` — the engine: TTM VM (`ttm.rs`), ADS VM and scene scheduler (`ads.rs`), island
+  and ambient animation (`island.rs`), walking (`walk.rs`), story planning (`mod.rs`), the original
+  random number generator (`rng.rs`), drawing primitives (`gfx.rs`), INI settings (`config.rs`).
+- `src/main.rs` — window (winit + softbuffer), clocks and input; `src/audio.rs` — sound (rodio).
 
-Os detalhes do que foi extraído por engenharia reversa estão em [`docs/ENGINE.md`](docs/ENGINE.md).
+What was recovered through reverse engineering is documented in [`docs/ENGINE.md`](docs/ENGINE.md).
