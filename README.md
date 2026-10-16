@@ -1,14 +1,20 @@
-# open-scrantic
+<div align="center">
 
-### A 1:1 Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993).
+<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="640">
+
+# Open Scrantic
+
+### A reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993).
 
 **The original Windows 3.1 screensaver, rebuilt from its disassembly and running natively.**
 
-The binary contains **only the logic**: all art, scripts, sounds and game tables are read from
-the **original installed files**. No game data is shipped in this repository.
+The binary contains **only the logic**: art, scripts, sounds and game tables are read at runtime
+from your **original installed files**. No game data is shipped here.
 
 [Quick start](#quick-start) · [How it works](#how-it-works) · [FAQ](#faq) · [Development](#development) ·
 [Credits](#credits)
+
+</div>
 
 > [!IMPORTANT]
 > You must supply your own copy of the original game files. See [Legal notice](#legal-notice).
@@ -19,8 +25,12 @@ the **original installed files**. No game data is shipped in this repository.
 cargo run --release -- /path/to/install
 ```
 
-Replace `/path/to/install` with the directory holding `SCRANTIC.SCR`, `RESOURCE.MAP` and
-`RESOURCE.001`. Details on requirements and options follow.
+Replace `/path/to/install` with the directory holding the original files (see
+[Requirements](#requirements)); it defaults to the current directory.
+
+There are no command-line options. It always runs fullscreen, like the original screensaver: any
+key, mouse click or mouse movement exits. Sound and visual options live in `SCRANTIC.INI` (see
+[Configuration](#configuration)).
 
 ## How it works
 
@@ -34,9 +44,10 @@ RESOURCE.001 ─┴► assets::resource  ──► images, palette, TTM/ADS scri
                                                                       winit + softbuffer + rodio
 ```
 
-The original executable was disassembled and the disassembly is the ground truth for behavior:
-code comments cite original addresses (`seg10:1acb`, `DS:1756`). Formats, VM semantics, story
-rules, timing and deliberate deviations are recorded in [`docs/ENGINE.md`](docs/ENGINE.md).
+The disassembly of the original executable is the ground truth for behavior, including the original
+16-bit arithmetic and random number generator. Recovered formats, VM semantics, story rules, timing
+and the deliberate deviations (for example, full-frame redraw instead of dirty rectangles) are
+recorded in [`docs/ENGINE.md`](docs/ENGINE.md).
 
 ## Requirements
 
@@ -48,16 +59,6 @@ rules, timing and deliberate deviations are recorded in [`docs/ENGINE.md`](docs/
 | `SCRANTIC.SCR` | 295,952     | original Win16 executable (sounds + game-logic tables)       |
 | `RESOURCE.MAP` | 1,461       | resource index                                               |
 | `RESOURCE.001` | 1,175,645   | images (BMP/SCR), palette, animation scripts (TTM/ADS)       |
-
-## Usage
-
-```sh
-cargo run --release -- /path/to/install
-```
-
-There are no options. It always runs fullscreen, like the original screensaver: any key, mouse click
-or mouse movement exits. `GAME_DIR` defaults to the current directory. Sound and visual options live
-in `SCRANTIC.INI` (see below).
 
 ## Configuration
 
@@ -86,7 +87,7 @@ the program is closed. Keys are case-insensitive; unknown keys and non-numeric v
 | `StartTime`    | `900`   | start of the 16-half-hour day/night cycle, as `HHMM`                 |
 
 An out-of-range `NumDays` (below 2 or above 11) restarts the story at chapter 1 on the next day
-change. Delete the file to reset everything. Details: [`docs/ENGINE.md`](docs/ENGINE.md).
+change. Delete the file to reset everything.
 
 ## Release build
 
@@ -116,7 +117,7 @@ Architecture:
   random number generator (`rng.rs`), drawing primitives (`gfx.rs`), INI settings (`config.rs`).
 - `src/main.rs` — window (winit + softbuffer), clocks and input; `src/audio.rs` — sound (rodio).
 
-What was recovered through reverse engineering is documented in [`docs/ENGINE.md`](docs/ENGINE.md).
+See [`AGENTS.md`](AGENTS.md) for the full architecture notes and conventions.
 
 ## FAQ
 
@@ -128,17 +129,11 @@ only the engine and reads those assets at runtime.
 No. The loader validates known strings in `SCRANTIC.SCR` and rejects other builds of the executable.
 
 **How faithful is it?**
-Behavior follows the disassembly, including the original 16-bit arithmetic and random number
-generator. Intentional differences (for example, full-frame redraw instead of dirty rectangles)
-are listed in [`docs/ENGINE.md`](docs/ENGINE.md).
+Engine behavior follows the disassembly; the settings UI is not reimplemented, and a few
+intentional differences are listed in [`docs/ENGINE.md`](docs/ENGINE.md).
 
 **Where is my progress saved?**
-In `SCRANTIC.INI` in the user configuration directory, on clean exit only.
-
-## Documentation
-
-- [`docs/ENGINE.md`](docs/ENGINE.md) — recovered formats, VM semantics, story rules, timing.
-- [`AGENTS.md`](AGENTS.md) — architecture and conventions for contributors and coding agents.
+See [Configuration](#configuration).
 
 ## Contributing
 
@@ -151,7 +146,8 @@ OPEN_SCRANTIC_DATA=/path/to/install cargo test
 ```
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Never commit game
-data. When porting more logic, cite the original address in the comment, as existing code does.
+data. When porting more logic, cite the original address in the comment (`seg10:1acb`, `DS:1756`),
+as existing code does.
 
 ## Legal notice
 
@@ -162,11 +158,10 @@ endorsed by them. It does not include or distribute any original game data.
 ## Credits
 
 The original `SCRANTIC.SCR` was disassembled and decompiled with
-[REA: Reverse Engineer Anything](https://github.com/morluto/rea). The recovered behavior
-documented in `docs/ENGINE.md` comes from that analysis.
+[REA: Reverse Engineer Anything](https://github.com/morluto/rea); the findings are in
+`docs/ENGINE.md`.
 
 ## License
 
-The source code is released under the [MIT License](LICENSE), Copyright (c) 2026 Glauber Lima.
-The license covers this repository only; the original game and its data remain the property of
+Source code under the [MIT License](LICENSE). The original game and its data remain the property of
 their owners (see the [legal notice](#legal-notice)).
