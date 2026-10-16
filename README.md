@@ -162,5 +162,11 @@ endorsed by them. It does not include or distribute any original game data.
 ## Credits
 
 The original `SCRANTIC.SCR` was disassembled and decompiled with
-[REA](https://github.com/morluto/rea), a reverse-engineering toolkit. The recovered behavior
+[REA: Reverse Engineer Anything](https://github.com/morluto/rea). The recovered behavior
 documented in `docs/ENGINE.md` comes from that analysis.
+
+## License
+
+The source code is released under the [MIT License](LICENSE), Copyright (c) 2026 Glauber Lima.
+The license covers this repository only; the original game and its data remain the property of
+their owners (see the [legal notice](#legal-notice)).

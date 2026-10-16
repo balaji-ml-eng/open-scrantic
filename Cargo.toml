@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 description = "Modern 1:1 reimplementation of Sierra/Dynamix 'Screen Antics: Johnny Castaway' (1993), running on the original data files"
+license = "MIT"
 publish = false
 
 [dependencies]
