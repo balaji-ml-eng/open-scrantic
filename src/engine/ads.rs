@@ -1,0 +1,559 @@
+//! ADS sequencing scripts and the scene scheduler (seg10 of the original).
+//!
+//! An ADS file is split into tags (sections). Each active tag's script is re-evaluated on
+//! every scheduler tick; it starts and stops TTM scenes, whose current frames are then
+//! executed (drawn) in list order.
+
+use super::Env;
+use super::rng::Rng;
+use super::ttm::{self, Scene, TtmCtx, state};
+use crate::assets::resource::{Ads, Archive};
+use crate::assets::{AssetError, Result};
+
+const TAG_FIRST_RUN: u16 = 8;
+
+struct Tag {
+    id: u16,
+    code: usize,
+    state: u16,
+    counter: u16,
+    resume: Option<usize>,
+    scenes: Vec<usize>,
+}
+
+pub struct AdsRuntime {
+    pub id: u8,
+    script: Vec<u8>,
+    tags: Vec<Tag>,
+    ttms: Vec<TtmCtx>,
+    scenes: Vec<Scene>,
+    /// Scene drawing order (the original's linked list).
+    order: Vec<usize>,
+    cur: usize,
+    brk: bool,
+    cond: bool,
+    now: u32,
+}
+
+fn is_condition(op: u16) -> bool {
+    (0x1310..=0x13C1).contains(&op)
+}
+
+impl AdsRuntime {
+    pub fn load(archive: &Archive, id: u8, name: &str) -> Result<Self> {
+        let Ads { ttms: list, script } = archive.ads(name)?;
+        let mut ttms = Vec::new();
+        let mut scenes = Vec::new();
+        for (slot, ttm_name) in list {
+            let ttm = archive.ttm(&ttm_name)?;
+            for &(tag, frame) in &ttm.scenes {
+                scenes.push(Scene::new(ttms.len(), slot, tag, frame));
+            }
+            ttms.push(TtmCtx::new(ttm));
+        }
+        if script.len() < 2 {
+            return Err(AssetError::Format(format!("{name}: empty script")));
+        }
+        let mut ads = Self {
+            id,
+            order: (0..scenes.len()).collect(),
+            script,
+            tags: Vec::new(),
+            ttms,
+            scenes,
+            cur: 0,
+            brk: false,
+            cond: false,
+            now: 0,
+        };
+        // seg10:04fc: tags are 0xFFFF-separated sections, each starting with its id.
+        let mut p = Some(2usize);
+        let mut start = 2usize;
+        while let Some(q) = p {
+            if ads.w(q) == 0xFFFF {
+                let tag = Tag {
+                    id: ads.w(start - 2),
+                    code: start,
+                    state: TAG_FIRST_RUN,
+                    counter: 0,
+                    resume: None,
+                    scenes: ads.tag_scenes(start),
+                };
+                ads.tags.push(tag);
+                start = q + 4;
+                p = (start < ads.script.len()).then_some(start);
+            } else {
+                p = ads.next(q);
+            }
+        }
+        for s in &mut ads.scenes {
+            s.reset();
+        }
+        Ok(ads)
+    }
+
+    fn w(&self, p: usize) -> u16 {
+        match self.script.get(p..p + 2) {
+            Some(b) => u16::from_le_bytes([b[0], b[1]]),
+            None => 0xFFFF,
+        }
+    }
+
+    fn arg(&self, p: usize, i: usize) -> i32 {
+        self.w(p + 2 + i * 2) as i16 as i32
+    }
+
+    /// seg10:0303 – instruction length table.
+    fn next(&self, p: usize) -> Option<usize> {
+        if p + 1 >= self.script.len() {
+            return None;
+        }
+        let len = match self.w(p) {
+            0x2000 | 0x2005 => 10,
+            0x2010 | 0x2015 | 0x2020 | 0x4000 | 0x4010 => 8,
+            0x1010..=0x1070 | 0x1310..=0x1370 => 6,
+            0xF010 | 0xF200 | 0xF210 | 0x1080 | 0x1380 | 0x1390 | 0x13A0 | 0x13A1 | 0x13B0 | 0x13B1 | 0x13C0
+            | 0x13C1 | 0x3020 => 4,
+            _ => 2,
+        };
+        Some(p + len)
+    }
+
+    /// seg10:040f – scenes started by a tag (0x2000/0x2005), reset when the tag restarts.
+    fn tag_scenes(&self, start: usize) -> Vec<usize> {
+        let mut list = Vec::new();
+        let mut p = Some(start);
+        while let Some(q) = p {
+            let op = self.w(q);
+            if op == 0xFFFF {
+                break;
+            }
+            if (op == 0x2000 || op == 0x2005)
+                && let Some(s) = self.find_scene(self.arg(q, 0), self.arg(q, 1))
+                && !list.contains(&s)
+            {
+                list.push(s);
+            }
+            p = self.next(q);
+        }
+        list
+    }
+
+    fn find_scene(&self, slot: i32, tag: i32) -> Option<usize> {
+        self.order
+            .iter()
+            .copied()
+            .find(|&i| self.scenes[i].slot as i32 == slot && self.scenes[i].tag as i32 == tag)
+    }
+
+    fn tag_index(&self, id: i32) -> Option<usize> {
+        self.tags.iter().position(|t| t.id as i32 == id)
+    }
+
+    /// seg10:0874 – start a tag (state 3: reset its scenes, then run).
+    pub fn start_tag(&mut self, id: u8) {
+        if let Some(i) = self.tag_index(id as i32) {
+            let t = &mut self.tags[i];
+            t.resume = None;
+            t.state = (t.state & TAG_FIRST_RUN) | 3;
+        }
+    }
+
+    /// seg10:0766 – is the tag still running (directly or through non-looping scenes)?
+    pub fn tag_busy(&self, id: u8) -> bool {
+        let Some(i) = self.tag_index(id as i32) else {
+            return false;
+        };
+        let st = self.tags[i].state & !TAG_FIRST_RUN;
+        if st == 4 || st == 1 {
+            return true;
+        }
+        self.tags[i].scenes.iter().any(|&s| {
+            let sc = &self.scenes[s];
+            sc.state != state::DONE && sc.state != state::IDLE && !sc.looping
+        })
+    }
+
+    // ---- condition evaluation (seg10:1223) ----
+
+    fn condition(&self, op: u16, p: usize) -> bool {
+        let scene = self.find_scene(self.arg(p, 0), self.arg(p, 1)).map(|i| &self.scenes[i]);
+        match op & 0xFF {
+            0x10 => scene.is_some_and(|s| s.state == state::FROZEN),
+            0x20 => scene.is_none_or(|s| s.state != state::FROZEN),
+            0x30 => scene.is_none_or(|s| s.plays == 0),
+            0x40 => scene.is_some_and(|s| s.plays != 0),
+            0x50 => scene.is_some_and(|s| s.state == state::DONE),
+            0x60 => scene.is_none_or(|s| s.state == state::DONE || s.state == state::IDLE),
+            0x70 => scene.is_some_and(|s| (1..=3).contains(&s.state)),
+            0x80 => self.tags[self.cur].counter as i32 <= self.arg(p, 0),
+            _ => false, // ADS variables: unused by this game
+        }
+    }
+
+    /// Evaluates a condition chain with AND/OR (left to right, short-circuit as the original).
+    fn eval_cond(&mut self, mut p: usize) -> Option<usize> {
+        let mut result = false;
+        let mut or_hit = false;
+        loop {
+            if self.condition(self.w(p), p) {
+                result = true;
+            }
+            loop {
+                p = self.next(p)?;
+                let op = self.w(p);
+                if op != 0x1430 && op != 0x1420 {
+                    self.cond = result || or_hit;
+                    return Some(p);
+                }
+                if result {
+                    if op == 0x1430 {
+                        or_hit = true;
+                        p = self.next(p)?; // skip the OR, then the next condition below
+                        continue;
+                    }
+                    result = false; // AND: evaluate the next condition
+                    p = self.next(p)?;
+                    break;
+                }
+                if op == 0x1430 {
+                    p = self.next(p)?;
+                    break;
+                }
+                p = self.next(p)?; // false AND x: skip x
+            }
+        }
+    }
+
+    // ---- block structure ----
+
+    /// seg10:106b – skip to the matching ELSE/ENDIF.
+    fn skip_block(&mut self, mut p: usize) -> Option<usize> {
+        loop {
+            let op = self.w(p);
+            match op {
+                0 | 0xFFFF => return None,
+                0x1510 | 0x1500 => return Some(p),
+                _ if is_condition(op) => {
+                    let cond_end = self.eval_cond(p)?;
+                    let mut q = self.skip_block(cond_end)?;
+                    if self.w(q) == 0x1500 {
+                        q = self.skip_block(q + 2)?;
+                    }
+                    p = self.next(q)?;
+                }
+                _ => p = self.next(p)?,
+            }
+        }
+    }
+
+    /// seg10:11db – skip the IF branch and run the ELSE branch if present.
+    fn skip_to_else(&mut self, p: usize, rng: &mut Rng) -> Option<usize> {
+        let q = self.skip_block(p)?;
+        if self.w(q) == 0x1500 {
+            self.run_block(q + 2, rng)
+        } else {
+            Some(q)
+        }
+    }
+
+    /// seg10:118a – skip a WAIT block up to its 0x1520 terminator.
+    fn skip_wait(&self, mut p: usize) -> Option<usize> {
+        loop {
+            match self.w(p) {
+                0 | 0xFFFF => return None,
+                0x1520 => return Some(p),
+                _ => p = self.next(p)?,
+            }
+        }
+    }
+
+    /// seg10:1925 – run statements until a block terminator or the end of the tag.
+    fn run_block(&mut self, mut p: usize, rng: &mut Rng) -> Option<usize> {
+        while self.w(p) != 0xFFFF {
+            let r = self.exec(p, rng);
+            if self.brk {
+                self.brk = false;
+                return r;
+            }
+            p = r?;
+        }
+        None
+    }
+
+    fn weight(&self, p: usize) -> i32 {
+        match self.w(p) {
+            0x2000 | 0x2005 => self.arg(p, 3),
+            0x3020 => self.arg(p, 0),
+            _ => self.arg(p, 2),
+        }
+    }
+
+    /// seg10:0cda – RANDOM … END_RANDOM: pick one statement by weight (0x3020 = do nothing).
+    fn random(&mut self, start: usize, rng: &mut Rng) -> Option<usize> {
+        let mut total = 0i32;
+        let mut p = start;
+        while self.w(p) != 0x30FF {
+            total += self.weight(p);
+            p = self.next(p)?;
+        }
+        let after = p + 2;
+        if total <= 0 {
+            return Some(after);
+        }
+        let mut r = (rng.below(total as u16) as i16 as i32).abs() + 1;
+        let mut p = start;
+        loop {
+            r -= self.weight(p);
+            if r <= 0 {
+                break;
+            }
+            p = self.next(p)?;
+        }
+        if self.w(p) != 0x3020 {
+            self.exec(p, rng);
+        }
+        Some(after)
+    }
+
+    /// seg10:0db6 – start a scene: n=0 once, n>0 n times, n<0 for -n ticks.
+    fn add_scene(&mut self, slot: i32, tag: i32, n: i32) {
+        if let Some(i) = self.find_scene(slot, tag) {
+            let now = self.now;
+            let s = &mut self.scenes[i];
+            match n {
+                0 => s.state = state::ONCE,
+                n if n > 0 => {
+                    s.state = state::REPEAT;
+                    s.repeats = n - 1;
+                }
+                n => {
+                    s.state = state::TIMED;
+                    s.end_time = now.wrapping_add(n.unsigned_abs());
+                }
+            }
+            s.plays += 1;
+        }
+    }
+
+    /// seg10:1519 – execute one statement, returning the next one (None stops the tag).
+    fn exec(&mut self, p: usize, rng: &mut Rng) -> Option<usize> {
+        let op = self.w(p);
+        let (a0, a1, a2) = (self.arg(p, 0), self.arg(p, 1), self.arg(p, 2));
+        match op {
+            0x0001 | 0x0005 => Some(p + 2),
+            0xFFFF => None,
+            0x1500 => {
+                let q = self.skip_block(p + 2);
+                self.brk = true;
+                q
+            }
+            0x1510 => {
+                self.brk = true;
+                Some(p)
+            }
+            0x1520 => {
+                self.brk = true;
+                None
+            }
+            0x2000 => {
+                if let Some(i) = self.find_scene(a0, a1) {
+                    self.scenes[i].cur = self.scenes[i].start;
+                }
+                self.add_scene(a0, a1, a2);
+                Some(p + 10)
+            }
+            0x2005 => {
+                self.add_scene(a0, a1, a2);
+                Some(p + 10)
+            }
+            0x2010 | 0x2015 | 0x2020 => {
+                if let Some(i) = self.find_scene(a0, a1) {
+                    match op {
+                        0x2010 => self.scenes[i].state = state::IDLE,
+                        0x2015 => self.scenes[i].state = state::FROZEN,
+                        _ => self.scenes[i].reset(),
+                    }
+                }
+                Some(p + 8)
+            }
+            0x4000 | 0x4010 => {
+                if let Some(i) = self.find_scene(a0, a1) {
+                    self.order.retain(|&s| s != i);
+                    if op == 0x4000 {
+                        self.order.push(i)
+                    } else {
+                        self.order.insert(0, i)
+                    }
+                }
+                Some(p + 8)
+            }
+            0x3010 => self.random(p + 2, rng),
+            0xF000 => {
+                self.tags[self.cur].state = 2;
+                None
+            }
+            0xF010 => {
+                let i = if a0 == -1 { Some(self.cur) } else { self.tag_index(a0) };
+                if let Some(i) = i {
+                    self.tags[i].state = 2;
+                    if i == self.cur {
+                        return None;
+                    }
+                }
+                Some(p + 4)
+            }
+            0xF200 | 0xF210 => {
+                if let Some(i) = self.tag_index(a0) {
+                    let t = &mut self.tags[i];
+                    t.resume = None;
+                    t.state = (t.state & TAG_FIRST_RUN) | if op == 0xF200 { 4 } else { 3 };
+                }
+                Some(p + 4)
+            }
+            _ if is_condition(op) => {
+                let q = self.eval_cond(p)?;
+                let r = if self.cond {
+                    self.run_block(q, rng)
+                } else {
+                    self.skip_to_else(q, rng)
+                };
+                r.map(|r| r + 2)
+            }
+            0x1010..=0x1080 if op & 0xF == 0 => {
+                // WAIT-style condition: re-evaluated from here on every tick while true.
+                let q = self.eval_cond(p)?;
+                let cur = self.cur;
+                if self.cond {
+                    self.tags[cur].counter += 1;
+                    self.tags[cur].resume = Some(p);
+                    self.run_block(q, rng);
+                    None
+                } else {
+                    self.tags[cur].counter = 0;
+                    self.tags[cur].resume = None;
+                    self.skip_wait(q).map(|r| r + 2)
+                }
+            }
+            _ => None, // 0x3020/0x1420/0x1430 outside their context, unknown opcodes
+        }
+    }
+
+    /// seg10:0c30 – a tag's re-entry point: just after a 0x0005 marker, if any.
+    fn reentry(&self, start: usize) -> usize {
+        let mut p = Some(start);
+        while let Some(q) = p {
+            match self.w(q) {
+                0x0005 => return q + 2,
+                0xFFFF => break,
+                _ => p = self.next(q),
+            }
+        }
+        start
+    }
+
+    /// seg10:1acb – one scheduler tick. Returns true if any scene ran a frame.
+    pub fn update(&mut self, env: &mut Env<'_>) -> bool {
+        self.now = env.now;
+
+        // Propagate tag states to their scenes; restarted tags reset their scenes.
+        for t in 0..self.tags.len() {
+            let flags = self.tags[t].state & !TAG_FIRST_RUN;
+            for k in 0..self.tags[t].scenes.len() {
+                let s = self.tags[t].scenes[k];
+                if flags == 3 {
+                    self.scenes[s].reset()
+                } else {
+                    self.scenes[s].tag_state = flags
+                }
+            }
+        }
+
+        // Run every active tag's script.
+        for t in 0..self.tags.len() {
+            let mut st = self.tags[t].state;
+            let mut p = self.tags[t].code;
+            if st & TAG_FIRST_RUN != 0 {
+                st &= !TAG_FIRST_RUN;
+                self.tags[t].state = st;
+            } else {
+                p = self.reentry(p);
+            }
+            if let Some(r) = self.tags[t].resume {
+                p = r;
+            }
+            if st == 3 || st == 4 {
+                self.tags[t].state = 1;
+                st = 1;
+            }
+            self.cur = t;
+            if st == 1 {
+                self.run_block(p, env.rng);
+            }
+        }
+
+        // Execute (draw) the current frame of every running scene, in list order.
+        let mut ran = false;
+        let now = self.now;
+        for i in self.order.clone() {
+            let (ttm_index, tag_state, old_state) = {
+                let s = &self.scenes[i];
+                (s.ttm, s.tag_state, s.state)
+            };
+            let running = matches!(old_state, state::ONCE | state::REPEAT | state::TIMED | state::FROZEN);
+            if tag_state != 6 && running {
+                let scene = &mut self.scenes[i];
+                match ttm::run_frame(&mut self.ttms[ttm_index], scene, env) {
+                    None => {
+                        if tag_state != 5 {
+                            scene.goto = scene.start;
+                            scene.state = state::DONE;
+                        }
+                    }
+                    Some(_) if tag_state == 5 => {}
+                    Some(res) => {
+                        scene.redraw = true;
+                        ran = true;
+                        if let Some(d) = res.delay
+                            && d != scene.delay
+                        {
+                            scene.next_time = now.wrapping_add(d as u32);
+                            scene.delay = d;
+                        }
+                        if res.purge {
+                            scene.goto = scene.start;
+                            if scene.state == state::REPEAT && scene.repeats != 0 {
+                                if scene.advance(now) {
+                                    scene.repeats -= 1;
+                                }
+                            } else if scene.state == state::TIMED && scene.end_time != 0 {
+                                scene.advance(now);
+                            } else if scene.advance(now) {
+                                scene.state = state::DONE;
+                                scene.delay = 0;
+                            }
+                        } else {
+                            if let Some(g) = res.goto
+                                && g != -1
+                            {
+                                scene.goto = g;
+                                if scene.cur == g {
+                                    scene.looping = true;
+                                }
+                            }
+                            if scene.state != state::FROZEN {
+                                scene.advance(now);
+                            }
+                        }
+                    }
+                }
+            } else if tag_state != 6 && tag_state != 5 && old_state == state::DONE {
+                self.scenes[i].state = state::IDLE;
+            }
+            if old_state == state::TIMED && self.scenes[i].end_time <= now {
+                self.scenes[i].state = state::DONE;
+            }
+        }
+        ran
+    }
+}

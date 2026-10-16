@@ -1,0 +1,182 @@
+//! 640x480 palette-indexed drawing surface reproducing the GDI operations the original used.
+
+use crate::assets::resource::{Picture, Sprite};
+
+pub const WIDTH: i32 = 640;
+pub const HEIGHT: i32 = 480;
+
+/// Sprite blit flags, as passed by TTM opcodes (bits 4..7 of 0xA5x4).
+pub const FLIP_V: u8 = 1;
+pub const FLIP_H: u8 = 2;
+
+/// Inclusive clip rectangle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Clip {
+    pub x1: i32,
+    pub y1: i32,
+    pub x2: i32,
+    pub y2: i32,
+}
+
+impl Clip {
+    pub const FULL: Clip = Clip {
+        x1: 0,
+        y1: 0,
+        x2: WIDTH - 1,
+        y2: HEIGHT - 1,
+    };
+
+    pub fn rect(x: i32, y: i32, w: i32, h: i32) -> Clip {
+        Clip {
+            x1: x,
+            y1: y,
+            x2: x + w - 1,
+            y2: y + h - 1,
+        }
+    }
+
+    fn bounded(self) -> Clip {
+        Clip {
+            x1: self.x1.max(0),
+            y1: self.y1.max(0),
+            x2: self.x2.min(WIDTH - 1),
+            y2: self.y2.min(HEIGHT - 1),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Canvas {
+    pub px: Vec<u8>,
+}
+
+impl Default for Canvas {
+    fn default() -> Self {
+        Self {
+            px: vec![0; (WIDTH * HEIGHT) as usize],
+        }
+    }
+}
+
+impl Canvas {
+    pub fn fill(&mut self, color: u8) {
+        self.px.fill(color);
+    }
+
+    #[inline]
+    fn put(&mut self, x: i32, y: i32, c: u8, clip: Clip) {
+        if x >= clip.x1 && x <= clip.x2 && y >= clip.y1 && y <= clip.y2 {
+            self.px[(y * WIDTH + x) as usize] = c;
+        }
+    }
+
+    pub fn pixel(&mut self, x: i32, y: i32, c: u8, clip: Clip) {
+        self.put(x, y, c, clip.bounded());
+    }
+
+    /// Loads a full-screen picture (SCR); pictures shorter than 480 lines leave the rest untouched.
+    pub fn load_picture(&mut self, pic: &Picture) {
+        for y in 0..pic.h.min(HEIGHT as usize) {
+            let w = pic.w.min(WIDTH as usize);
+            let dst = y * WIDTH as usize;
+            self.px[dst..dst + w].copy_from_slice(&pic.px[y * pic.w..y * pic.w + w]);
+        }
+    }
+
+    pub fn copy_rect_from(&mut self, src: &Canvas, x: i32, y: i32, w: i32, h: i32) {
+        let c = Clip::rect(x, y, w, h).bounded();
+        for yy in c.y1..=c.y2 {
+            let a = (yy * WIDTH + c.x1) as usize;
+            let b = (yy * WIDTH + c.x2 + 1) as usize;
+            if a < b {
+                self.px[a..b].copy_from_slice(&src.px[a..b]);
+            }
+        }
+    }
+
+    pub fn sprite(&mut self, s: &Sprite, x: i32, y: i32, flags: u8, clip: Clip) {
+        let c = clip.bounded();
+        let (x0, y0) = (x.max(c.x1), y.max(c.y1));
+        let (x1, y1) = ((x + s.w - 1).min(c.x2), (y + s.h - 1).min(c.y2));
+        for dy in y0..=y1 {
+            let sy = if flags & FLIP_V != 0 {
+                s.h - 1 - (dy - y)
+            } else {
+                dy - y
+            };
+            let row = (sy * s.w) as usize;
+            for dx in x0..=x1 {
+                let sx = if flags & FLIP_H != 0 {
+                    s.w - 1 - (dx - x)
+                } else {
+                    dx - x
+                };
+                let v = s.px[row + sx as usize];
+                if v != 0 {
+                    self.px[(dy * WIDTH + dx) as usize] = v;
+                }
+            }
+        }
+    }
+
+    /// GDI MoveTo/LineTo: the end point itself is not drawn.
+    pub fn line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, c: u8, clip: Clip) {
+        let clip = clip.bounded();
+        let (dx, dy) = ((x2 - x1).abs(), -(y2 - y1).abs());
+        let (sx, sy) = ((x2 - x1).signum(), (y2 - y1).signum());
+        let (mut x, mut y, mut err) = (x1, y1, dx + dy);
+        while (x, y) != (x2, y2) {
+            self.put(x, y, c, clip);
+            let e2 = 2 * err;
+            if e2 >= dy {
+                err += dy;
+                x += sx;
+            }
+            if e2 <= dx {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)] // mirrors the original GDI-backed primitive
+    /// TTM rectangle: `filled` draws a 1px `fg` border around a `bg` interior.
+    pub fn rect(&mut self, x: i32, y: i32, w: i32, h: i32, fg: u8, bg: u8, filled: bool, clip: Clip) {
+        let clip = clip.bounded();
+        if w <= 0 || h <= 0 {
+            return;
+        }
+        for yy in y..y + h {
+            for xx in x..x + w {
+                let border = xx == x || yy == y || xx == x + w - 1 || yy == y + h - 1;
+                if border {
+                    self.put(xx, yy, if filled && w > 1 && h > 1 && fg == bg { bg } else { fg }, clip);
+                } else if filled {
+                    self.put(xx, yy, bg, clip);
+                }
+            }
+        }
+    }
+
+    /// GDI Ellipse in the box [cx-r, cx+r): `fg` outline, `bg` interior.
+    pub fn ellipse(&mut self, cx: i32, cy: i32, r: i32, fg: u8, bg: u8, clip: Clip) {
+        let clip = clip.bounded();
+        if r <= 0 {
+            return;
+        }
+        let rf = r as f32;
+        let inside = |px: i32, py: i32| {
+            let (fx, fy) = (px as f32 + 0.5 - cx as f32, py as f32 + 0.5 - cy as f32);
+            fx * fx + fy * fy <= rf * rf
+        };
+        for py in cy - r..cy + r {
+            for px in cx - r..cx + r {
+                if !inside(px, py) {
+                    continue;
+                }
+                let edge = !inside(px - 1, py) || !inside(px + 1, py) || !inside(px, py - 1) || !inside(px, py + 1);
+                self.put(px, py, if edge { fg } else { bg }, clip);
+            }
+        }
+    }
+}

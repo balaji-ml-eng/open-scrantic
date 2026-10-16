@@ -1,0 +1,18 @@
+[package]
+name = "open-scrantic"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+description = "Modern 1:1 reimplementation of Sierra/Dynamix 'Screen Antics: Johnny Castaway' (1993), running on the original data files"
+publish = false
+
+[dependencies]
+chrono = "0.4.45"
+dirs = "7.0.0"
+rodio = { version = "0.23.0", default-features = false, features = ["playback"] }
+softbuffer = "0.4.8"
+winit = "0.30.13"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
