@@ -54,11 +54,13 @@ recorded in [`docs/ENGINE.md`](docs/ENGINE.md).
 - Rust 1.99.1 (pinned in `rust-toolchain.toml`)
 - The files of the original installation, in one directory:
 
-| File           | Size        | Contents                                                     |
-|----------------|-------------|--------------------------------------------------------------|
-| `SCRANTIC.SCR` | 295,952     | original Win16 executable (sounds + game-logic tables)       |
-| `RESOURCE.MAP` | 1,461       | resource index                                               |
-| `RESOURCE.001` | 1,175,645   | images (BMP/SCR), palette, animation scripts (TTM/ADS)       |
+| File           | Size      | SHA-256                                                            | Contents                                               |
+|----------------|-----------|--------------------------------------------------------------------|--------------------------------------------------------|
+| `SCRANTIC.SCR` | 295,952   | `7811b526b36bba2f08326d7a680f2f063190b4278e5a36393fde5a02080b0262` | original Win16 executable (sounds + game-logic tables) |
+| `RESOURCE.MAP` | 1,461     | `3d9ec330aab96bbe5a44ce34f5945703862e82b195088590b7adfef5d7345da7` | resource index                                         |
+| `RESOURCE.001` | 1,175,645 | `df9c2213f7c0abacf4e302cb53a476f9f220579c07ba350b167e351eed548eae` | images (BMP/SCR), palette, animation scripts (TTM/ADS) |
+
+Check your copy with `shasum -a 256 SCRANTIC.SCR RESOURCE.MAP RESOURCE.001` (`sha256sum` on Linux).
 
 ## Configuration
 
