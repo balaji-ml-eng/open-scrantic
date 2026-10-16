@@ -87,6 +87,7 @@ pub struct Engine {
     last_final: Option<usize>,
     last_first: Option<usize>,
     story_scene: Option<usize>,
+    forced_scene: Option<usize>,
     story_state: i32,
     new_session: bool,
     sounds: Vec<u32>,
@@ -132,6 +133,7 @@ impl Engine {
             story_scene: None,
             story_state: 0,
             new_session: false,
+            forced_scene: None,
             sounds: Vec::new(),
             scenes_done: 0,
         })
@@ -236,8 +238,34 @@ impl Engine {
         None
     }
 
+    /// Debug aid (not in the original): number of entries in the scene catalogue.
+    pub fn scene_count(&self) -> usize {
+        self.data.exe.scenes.len()
+    }
+
+    /// Debug aid: one-line description of catalogue scene `i` (`ADS:tag`, story day, flags, duration).
+    pub fn scene_label(&self, i: usize) -> String {
+        let s = &self.data.exe.scenes[i];
+        let ads = self.data.exe.ads_names.get(&s.ads_id).map_or("idle", String::as_str);
+        format!(
+            "{ads}:{} day {} flags {:#x} phase {}..{} duration {}",
+            s.ads_tag, s.day, s.flags, s.min_phase, s.max_phase, s.duration
+        )
+    }
+
+    /// Debug aid: the next planned session is just catalogue scene `i`.
+    pub fn force_scene(&mut self, i: usize) {
+        self.forced_scene = Some(i);
+    }
+
     /// seg4:08b9 – plan a session: optional story chapter, a final scene and filler scenes.
     fn plan_session(&mut self, phase: i32, mut budget: i32) {
+        if let Some(s) = self.forced_scene.take() {
+            self.island.apply_flags(self.data.exe.scenes[s].flags);
+            self.pending[s] = true;
+            self.plan = vec![s];
+            return;
+        }
         let flags = |e: &Self, i: usize| e.data.exe.scenes[i].flags;
         let duration = |e: &Self, i: usize| e.data.exe.scenes[i].duration as i32;
         let mut first = None;

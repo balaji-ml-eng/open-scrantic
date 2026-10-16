@@ -1,5 +1,5 @@
 //! Headless run: steps the engine with a fixed wall clock and saves PNG snapshots.
-//! Usage: cargo run --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY]
+//! Usage: cargo run --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
 
 use std::fs;
 use std::path::Path;
@@ -85,6 +85,16 @@ fn main() {
         (config.year, config.month, config.day) = (clock.year, clock.month, clock.day);
     }
     let mut engine = Engine::new(GameData::load(dir).unwrap(), config, seed).unwrap();
+    match a.get(8).map(String::as_str) {
+        Some("list") => {
+            for i in 0..engine.scene_count() {
+                println!("{i}: {}", engine.scene_label(i));
+            }
+            return;
+        }
+        Some(v) => engine.force_scene(v.parse().expect("SCENE index")),
+        None => {}
+    }
     let mut ticks = 0u64;
     for step in 1..=steps {
         while (ticks + 1) * TICK_MS <= step * STEP_MS {

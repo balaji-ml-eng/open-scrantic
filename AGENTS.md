@@ -27,11 +27,12 @@ cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
 OPEN_SCRANTIC_DATA=/path/to/install cargo test headless_run_completes_scenes   # single test
 OPEN_SCRANTIC_DEBUG=1 cargo run --release -- /path/to/install   # prints each session's plan and scene completions
-cargo run --release --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY]
+cargo run --release --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
 ```
 
 The `snapshot` example runs the engine headless with a fixed clock and writes PNGs; it is the way
-to verify rendering changes (e.g. `STORY_DAY` presets a story chapter, `HHMM` picks day/night).
+to verify rendering changes (e.g. `STORY_DAY` presets a story chapter, `HHMM` picks day/night). `SCENE` forces one catalogue scene as the whole session (`list` prints the
+catalogue with indices); story scenes have `day` > 0 and some need a late `HHMM` (their phase range).
 
 `Cargo.toml` denies all rustc and clippy warnings (`[lints]`) and forbids `unsafe`, so any warning
 fails the build. `clippy::pedantic` is deliberately not enabled: many `as` casts intentionally
