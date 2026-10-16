@@ -59,3 +59,9 @@ Architecture:
 - `src/main.rs` — window (winit + softbuffer), clocks and input; `src/audio.rs` — sound (rodio).
 
 What was recovered through reverse engineering is documented in [`docs/ENGINE.md`](docs/ENGINE.md).
+
+## Credits
+
+The original `SCRANTIC.SCR` was disassembled and decompiled with
+[REA](https://github.com/morluto/rea), a reverse-engineering toolkit. The recovered behavior
+documented in `docs/ENGINE.md` comes from that analysis.
