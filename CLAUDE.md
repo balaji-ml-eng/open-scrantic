@@ -21,7 +21,7 @@ Toolchain is pinned to Rust 1.99.1 (`rust-toolchain.toml`), edition 2024.
 
 ```sh
 cargo build --release                                   # optimized binary: target/release/open-scrantic
-cargo run --release -- /path/to/install [--scale N] [--fullscreen] [--saver] [--no-sound]
+cargo run --release -- /path/to/install                 # fullscreen; any input exits (no options)
 cargo clippy --all-targets                              # must stay at zero warnings
 cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
@@ -40,7 +40,7 @@ reproduce the original 16-bit arithmetic (wrapping `u16`/`i16`, unsigned `rand()
 
 ## Architecture
 
-Crate is a library (`src/lib.rs`) plus the windowed binary (`src/main.rs`) and the `snapshot` example.
+Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and the `snapshot` example.
 
 - **`assets/`** — `resource.rs` parses the Dynamix archive (chunked resources, RLE/LZW, 4 bpp
   BMP/SCR, PAL, TTM split into frames at `0x0FF0`, ADS). `exe.rs` reads the NE executable: the

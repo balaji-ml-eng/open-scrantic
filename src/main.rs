@@ -7,10 +7,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalSize, PhysicalPosition};
+use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::{Key, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 use open_scrantic::engine::config::Config;
@@ -22,60 +21,27 @@ use open_scrantic::{assets, audio};
 const INTRO_HOLD: Duration = Duration::from_secs(2);
 
 const USAGE: &str = "\
-Usage: open-scrantic [OPTIONS] [GAME_DIR]
+Usage: open-scrantic [GAME_DIR]
 
 GAME_DIR is the installed game directory containing SCRANTIC.SCR, RESOURCE.MAP and
 RESOURCE.001 (default: current directory).
 
-Options:
-  -f, --fullscreen   start in fullscreen (F11 toggles)
-  -s, --saver        screensaver mode: fullscreen, exit on any input
-      --scale N      initial window scale (default 1)
-      --no-sound     disable sound effects
-  -h, --help         show this help";
+Runs fullscreen as a screensaver: any key, mouse click or mouse movement exits.";
 
-struct Args {
-    dir: PathBuf,
-    fullscreen: bool,
-    saver: bool,
-    scale: u32,
-    sound: bool,
-}
-
-fn parse_args() -> Result<Args, String> {
-    let mut args = Args {
-        dir: PathBuf::from("."),
-        fullscreen: false,
-        saver: false,
-        scale: 1,
-        sound: true,
+fn parse_args() -> Result<PathBuf, String> {
+    let mut args = std::env::args().skip(1);
+    let dir = match args.next() {
+        None => PathBuf::from("."),
+        Some(a) if a.starts_with('-') => return Err(format!("unknown option {a}\n\n{USAGE}")),
+        Some(a) => PathBuf::from(a),
     };
-    let mut it = std::env::args().skip(1);
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "-f" | "--fullscreen" => args.fullscreen = true,
-            "-s" | "--saver" => {
-                args.saver = true;
-                args.fullscreen = true;
-            }
-            "--no-sound" => args.sound = false,
-            "--scale" => {
-                args.scale = it
-                    .next()
-                    .and_then(|v| v.parse().ok())
-                    .filter(|&s| (1..=8).contains(&s))
-                    .ok_or("--scale expects 1..8")?
-            }
-            "-h" | "--help" => return Err(USAGE.to_string()),
-            _ if a.starts_with('-') => return Err(format!("unknown option {a}\n\n{USAGE}")),
-            _ => args.dir = PathBuf::from(a),
-        }
+    if args.next().is_some() {
+        return Err(format!("too many arguments\n\n{USAGE}"));
     }
-    Ok(args)
+    Ok(dir)
 }
 
 struct App {
-    args: Args,
     engine: Engine,
     audio: Option<audio::Audio>,
     window: Option<Rc<Window>>,
@@ -151,16 +117,6 @@ impl App {
         }
         let _ = buf.present();
     }
-
-    fn toggle_fullscreen(&self) {
-        if let Some(win) = &self.window {
-            win.set_fullscreen(if win.fullscreen().is_some() {
-                None
-            } else {
-                Some(Fullscreen::Borderless(None))
-            });
-        }
-    }
 }
 
 impl ApplicationHandler for App {
@@ -170,11 +126,7 @@ impl ApplicationHandler for App {
         }
         let attrs = Window::default_attributes()
             .with_title("Johnny Castaway")
-            .with_inner_size(LogicalSize::new(
-                WIDTH as u32 * self.args.scale,
-                HEIGHT as u32 * self.args.scale,
-            ))
-            .with_fullscreen(self.args.fullscreen.then_some(Fullscreen::Borderless(None)));
+            .with_fullscreen(Some(Fullscreen::Borderless(None)));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Rc::new(w),
             Err(e) => {
@@ -183,9 +135,7 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        if self.args.saver {
-            window.set_cursor_visible(false);
-        }
+        window.set_cursor_visible(false);
         let surface = softbuffer::Context::new(Rc::clone(&window))
             .and_then(|ctx| softbuffer::Surface::new(&ctx, Rc::clone(&window)));
         match surface {
@@ -205,23 +155,13 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => self.redraw(),
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-                if self.args.saver {
-                    event_loop.exit();
-                    return;
-                }
-                match event.logical_key {
-                    Key::Named(NamedKey::Escape) => event_loop.exit(),
-                    Key::Named(NamedKey::F11) => self.toggle_fullscreen(),
-                    Key::Character(c) if c.eq_ignore_ascii_case("q") => event_loop.exit(),
-                    Key::Character(c) if c.eq_ignore_ascii_case("f") => self.toggle_fullscreen(),
-                    _ => {}
-                }
+                event_loop.exit();
             }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 ..
-            } if self.args.saver => event_loop.exit(),
-            WindowEvent::CursorMoved { position, .. } if self.args.saver => {
+            } => event_loop.exit(),
+            WindowEvent::CursorMoved { position, .. } => {
                 let first = *self.first_cursor.get_or_insert(position);
                 if (position.x - first.x).abs() + (position.y - first.y).abs() > 8.0 {
                     event_loop.exit();
@@ -252,14 +192,14 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
-    let args = match parse_args() {
-        Ok(a) => a,
+    let dir = match parse_args() {
+        Ok(d) => d,
         Err(msg) => {
-            println!("{msg}");
-            std::process::exit(if msg == USAGE { 0 } else { 2 });
+            eprintln!("{msg}");
+            std::process::exit(2);
         }
     };
-    let data = match assets::GameData::load(&args.dir) {
+    let data = match assets::GameData::load(&dir) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: {e}");
@@ -277,7 +217,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let audio = if args.sound { audio::Audio::new() } else { None };
+    let audio = audio::Audio::new();
     let event_loop = match EventLoop::new() {
         Ok(el) => el,
         Err(e) => {
@@ -286,7 +226,6 @@ fn main() {
         }
     };
     let mut app = App {
-        args,
         engine,
         audio,
         window: None,
