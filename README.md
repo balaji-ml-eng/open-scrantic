@@ -30,6 +30,17 @@ Story progress and options are stored in `SCRANTIC.INI` in the user configuratio
 original: `Background`, `Clouds`, `Waves`, `Sounds`, `NumDays`, `Introduction`,
 `CurrentYear/Month/Day` and `StartTime`.
 
+## Release build
+
+`cargo build --release` produces an optimized, portable binary at `target/release/open-scrantic`
+(fat LTO, a single codegen unit, `panic = "abort"`, stripped symbols).
+
+For a binary tuned to the build machine only (it may not run on older CPUs):
+
+```sh
+RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
 ## Development
 
 ```sh
