@@ -212,7 +212,7 @@ pub fn run_frame(ctx: &mut TtmCtx, scene: &mut Scene, env: &mut Env<'_>) -> Opti
                     continue;
                 }
                 if op.code == 0xA054 {
-                    ctx.saved_zone = Some((Clip::rect(a[0], a[1], w, h), env.front.clone()));
+                    ctx.saved_zone = Some((Clip::rect(a[0], a[1], w, h), env.bg.clone()));
                 } else if let Some((r, saved)) = &ctx.saved_zone {
                     env.work
                         .copy_rect_from(saved, r.x1, r.y1, r.x2 - r.x1 + 1, r.y2 - r.y1 + 1);
