@@ -14,7 +14,7 @@ pub struct Audio {
 }
 
 impl Audio {
-    /// Returns None when no output device is available; the game then runs silently.
+    /// Returns None when no output device is available; the screensaver then runs silently.
     pub fn new() -> Option<Self> {
         match DeviceSinkBuilder::open_default_sink() {
             Ok(mut sink) => {

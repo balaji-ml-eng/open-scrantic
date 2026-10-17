@@ -1,11 +1,11 @@
 //! open-scrantic: a reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1993)
-//! that runs on the original, installed game files.
+//! that runs on the original, installed screensaver files.
 
 pub mod assets;
 pub mod audio;
 pub mod engine;
 
-/// Directory of the running executable: where the game files and `SCRANTIC.INI` live.
+/// Directory of the running executable: where the screensaver files and `SCRANTIC.INI` live.
 pub fn app_dir() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()

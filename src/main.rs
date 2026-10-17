@@ -1,5 +1,5 @@
 //! open-scrantic: a modern reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1993).
-//! Runs on the original, installed game files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001).
+//! Runs on the original, installed screensaver files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001).
 
 use std::num::NonZeroU32;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ Options:
   -V, --version   print the version and exit
   -h, --help      print this help and exit
 
-The original game files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001) and SCRANTIC.INI are read
+The original screensaver files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001) and SCRANTIC.INI are read
 from the directory of this executable. Esc exits.";
 
 /// Parses the command line; `Ok(None)` means a message was printed and the program should exit.

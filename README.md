@@ -12,12 +12,12 @@
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
 [Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [For developers](#for-developers) ·
-[Legal](#legal-notice)
+[AI disclosure](#ai-disclosure) · [Legal](#legal-notice)
 
 </div>
 
 > [!IMPORTANT]
-> You need your own copy of the original game files. This project does not include them
+> You need your own copy of the original screensaver files. This project does not include them
 > (see [What you need](#what-you-need)).
 
 ## Get started
@@ -31,7 +31,7 @@
    | macOS   | `open-scrantic-macos`           |
    | Linux   | `open-scrantic-linux-x64`       |
 
-2. **Put it in the same folder** as the three original game files (`SCRANTIC.SCR`, `RESOURCE.MAP`
+2. **Put it in the same folder** as the three original screensaver files (`SCRANTIC.SCR`, `RESOURCE.MAP`
    and `RESOURCE.001`).
 3. **Run it.** It opens in a window; press **Esc** to exit. Start it with `--fullscreen` to fill the
    screen.
@@ -55,13 +55,13 @@ The program is not code-signed, so your system may warn about it.
 The three files from the original *Screen Antics: Johnny Castaway* installation (Windows 3.1), all in
 one folder next to the program:
 
-| File           | Size      | What it is                              |
-|----------------|-----------|-----------------------------------------|
-| `SCRANTIC.SCR` | 295,952   | the original screensaver program        |
-| `RESOURCE.MAP` | 1,461     | index of the game's resources           |
-| `RESOURCE.001` | 1,175,645 | the images and animation scripts        |
+| File           | Size      | What it is                           |
+|----------------|-----------|--------------------------------------|
+| `SCRANTIC.SCR` | 295,952   | the original screensaver program     |
+| `RESOURCE.MAP` | 1,461     | index of the screensaver's resources |
+| `RESOURCE.001` | 1,175,645 | the images and animation scripts     |
 
-Only this exact build of the game is supported.
+Only this exact build of the screensaver is supported.
 
 <details>
 <summary>Check that your files are the right ones</summary>
@@ -118,7 +118,7 @@ change.
 The art, animation scripts and sounds are copyrighted by their owners. This project reimplements
 only the engine and reads those assets when it runs.
 
-**Does it work with any build of the game?**
+**Does it work with any build of the screensaver?**
 No. The loader checks known strings in `SCRANTIC.SCR` and rejects other builds of the executable.
 
 **Where is my progress saved?**
@@ -132,7 +132,7 @@ and a few intentional differences are listed in [`docs/ENGINE.md`](docs/ENGINE.m
 
 Open Scrantic is a reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny
 Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
-screensaver. The program contains **only the logic**; art, scripts, sounds and game tables are read
+screensaver. The program contains **only the logic**; art, scripts, sounds and logic tables are read
 from your original files at runtime.
 
 ```text
@@ -163,7 +163,7 @@ cp /path/to/install/{SCRANTIC.SCR,RESOURCE.MAP,RESOURCE.001} target/release/
 target/release/open-scrantic
 ```
 
-The game files and `SCRANTIC.INI` are always read from the directory of the executable.
+The screensaver files and `SCRANTIC.INI` are always read from the directory of the executable.
 
 | Option          | Effect                               |
 |-----------------|--------------------------------------|
@@ -207,7 +207,7 @@ cargo fmt --check
 OPEN_SCRANTIC_DATA=/path/to/install cargo test
 ```
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Never commit game
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Never commit screensaver
 data. When porting more logic, cite the original address in the comment (`seg10:1acb`, `DS:1756`),
 as existing code does.
 
@@ -220,11 +220,21 @@ scans them with VirusTotal, commits the updated `CHANGELOG.md`, tags the version
 GitHub release with the binaries and their SHA-256 checksums. If no commit since the last tag
 deserves a release (`feat`, `fix`, `perf`, `refactor`, `docs`), nothing is published.
 
+## AI disclosure
+
+Generative AI was used throughout the development of Open Scrantic. The project was built with
+[Claude Code](https://claude.com/claude-code) (Anthropic) together with
+[REA: Reverse Engineer Anything](https://github.com/morluto/rea), a reverse-engineering toolkit
+exposed to the model. Together they were used to disassemble and decompile the original
+`SCRANTIC.SCR`, recover the resource formats and script semantics, and write the Rust code, tests and
+documentation. The developer directed the work and reviewed and integrated the AI-assisted results,
+checking the behavior against the original screensaver.
+
 ## Legal notice
 
 *Screen Antics: Johnny Castaway* is a trademark and copyright of its respective owners (Sierra /
 Dynamix). This is an independent, non-commercial interoperability project, not affiliated with or
-endorsed by them. It does not include or distribute any original game data.
+endorsed by them. It does not include or distribute any original screensaver data.
 
 ## Credits
 
@@ -234,5 +244,5 @@ The original `SCRANTIC.SCR` was disassembled and decompiled with
 
 ## License
 
-Source code under the [MIT License](LICENSE). The original game and its data remain the property of
+Source code under the [MIT License](LICENSE). The original screensaver and its data remain the property of
 their owners (see the [legal notice](#legal-notice)).

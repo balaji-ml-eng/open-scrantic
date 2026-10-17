@@ -1,5 +1,5 @@
 //! Data read from the original SCRANTIC.EXE (Win16 NE executable): sound effects and the
-//! game-logic tables (scene catalogue, walk routes, RNG seed table, whitecap animations).
+//! logic tables (scene catalogue, walk routes, RNG seed table, whitecap animations).
 //! Nothing from the original is embedded in this program; offsets below were found by
 //! disassembling the 1993 build and are validated against known strings at load time.
 

@@ -187,7 +187,7 @@ impl AdsRuntime {
             0x60 => scene.is_none_or(|s| s.state == state::DONE || s.state == state::IDLE),
             0x70 => scene.is_some_and(|s| (1..=3).contains(&s.state)),
             0x80 => self.tags[self.cur].counter as i32 <= self.arg(p, 0),
-            _ => false, // ADS variables: unused by this game
+            _ => false, // ADS variables: unused by this screensaver
         }
     }
 

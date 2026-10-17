@@ -85,5 +85,5 @@ front of him.
 - The title screen stays up for 2 s (on 1993 hardware it was visible while the first session loaded).
 - Ellipses and lines use their own rasterization, which may differ by 1 px from GDI.
 - The configuration dialog and the screensaver password were not reimplemented (options can be
-  edited in the INI). Features this game does not use (animated palettes, 256 colors, ADS
+  edited in the INI). Features this screensaver does not use (animated palettes, 256 colors, ADS
   variables) were not implemented.

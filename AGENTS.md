@@ -5,9 +5,9 @@ Guidance for AI coding agents (and human contributors) working in this repositor
 ## What this is
 
 A reverse-engineered, behavior-faithful Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993, Win16).
-The binary holds only the engine logic. At runtime it reads the **original installed game files**
+The binary holds only the engine logic. At runtime it reads the **original installed screensaver files**
 from a directory: `SCRANTIC.SCR` (the original NE executable), `RESOURCE.MAP` and `RESOURCE.001`.
-Never commit game data (they are git-ignored, as is the original floppy image).
+Never commit screensaver data (they are git-ignored, as is the original floppy image).
 
 Behaviour was recovered by disassembling `SCRANTIC.SCR`; the disassembly is the ground truth, and
 third-party reimplementations (jc_reborn, castaway) are only hints. `docs/ENGINE.md` records the
@@ -21,7 +21,7 @@ Toolchain is pinned to Rust 1.99.1 (`rust-toolchain.toml`), edition 2024.
 
 ```sh
 cargo build --release                                   # optimized binary: target/release/open-scrantic
-cp SCRANTIC.SCR RESOURCE.MAP RESOURCE.001 target/release/ && target/release/open-scrantic [--fullscreen]   # game files + SCRANTIC.INI live next to the binary; Esc exits
+cp SCRANTIC.SCR RESOURCE.MAP RESOURCE.001 target/release/ && target/release/open-scrantic [--fullscreen]   # screensaver files + SCRANTIC.INI live next to the binary; Esc exits
 cargo clippy --all-targets                              # must stay at zero warnings
 cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
@@ -45,7 +45,7 @@ Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and
 
 - **`assets/`** — `resource.rs` parses the Dynamix archive (chunked resources, RLE/LZW, 4 bpp
   BMP/SCR, PAL, TTM split into frames at `0x0FF0`, ADS). `exe.rs` reads the NE executable: the
-  `WAVESFXn` sounds (mapped through the RT_NAMETABLE resource) and game tables at fixed offsets in
+  `WAVESFXn` sounds (mapped through the RT_NAMETABLE resource) and logic tables at fixed offsets in
   the data segment (scene catalogue, walk routes/paths, RNG seed table, whitecap sequences). It
   validates known strings to reject other builds of the EXE.
 - **`engine/mod.rs` (`Engine`)** — the story driver: session planning (`plan_session`/`pick`),
@@ -60,7 +60,7 @@ Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and
 - **`engine/island.rs`** — background composition and ambience (placement constraints, shore
   waves, whitecaps, clouds baked into the background, raft, holiday decorations).
   **`walk.rs`** — Johnny walking between six spots using EXE route tables.
-  **`rng.rs`** — the original additive generator; use it (not another RNG) for any game randomness.
+  **`rng.rs`** — the original additive generator; use it (not another RNG) for any randomness in the engine.
 
 Key cross-cutting model:
 - **Rendering**: three canvases — `bg` (persistent background), `work` (rebuilt from `bg` every

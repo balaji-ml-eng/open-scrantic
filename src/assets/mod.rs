@@ -1,4 +1,4 @@
-//! Loading of the original, installed game files: SCRANTIC.SCR, RESOURCE.MAP and RESOURCE.001.
+//! Loading of the original, installed screensaver files: SCRANTIC.SCR, RESOURCE.MAP and RESOURCE.001.
 
 pub mod exe;
 pub mod resource;
@@ -21,8 +21,8 @@ impl fmt::Display for AssetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(e) => write!(f, "I/O error: {e}"),
-            Self::Missing(name) => write!(f, "missing game file: {name}"),
-            Self::Format(msg) => write!(f, "invalid game data: {msg}"),
+            Self::Missing(name) => write!(f, "missing screensaver file: {name}"),
+            Self::Format(msg) => write!(f, "invalid screensaver data: {msg}"),
         }
     }
 }
@@ -45,7 +45,7 @@ pub struct GameData {
 /// Reads a file from `dir`, matching the name case-insensitively (installs are often upper case).
 fn read_ci(dir: &Path, name: &str) -> Result<Vec<u8>> {
     let entries =
-        fs::read_dir(dir).map_err(|e| AssetError::Missing(format!("game directory {} ({e})", dir.display())))?;
+        fs::read_dir(dir).map_err(|e| AssetError::Missing(format!("screensaver directory {} ({e})", dir.display())))?;
     for entry in entries.flatten() {
         if entry.file_name().to_string_lossy().eq_ignore_ascii_case(name) {
             return Ok(fs::read(entry.path())?);
@@ -61,7 +61,7 @@ impl GameData {
         let volume = read_ci(dir, "RESOURCE.001")?;
         if volume.len() < 1024 {
             return Err(AssetError::Format(
-                "RESOURCE.001 is the installer placeholder; install the game first".into(),
+                "RESOURCE.001 is the installer placeholder; install the screensaver first".into(),
             ));
         }
         Ok(Self {
