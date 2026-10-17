@@ -1,44 +1,139 @@
 <div align="center">
 
-<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="640">
+<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="360">
 
 # Open Scrantic
 
-### A reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993).
+### Johnny Castaway, the classic 1993 screensaver, running natively on Windows, macOS and Linux.
 
-**The original Windows 3.1 screensaver, rebuilt from its disassembly and running natively.**
+[![CI](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml/badge.svg)](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/glauberlima/open-scrantic)](https://github.com/glauberlima/open-scrantic/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/glauberlima/open-scrantic)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
-The binary contains **only the logic**: art, scripts, sounds and game tables are read at runtime
-from your **original installed files**. No game data is shipped here.
-
-[Quick start](#quick-start) · [How it works](#how-it-works) · [FAQ](#faq) · [Development](#development) ·
-[Credits](#credits)
+[Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [For developers](#for-developers) ·
+[Legal](#legal-notice)
 
 </div>
 
 > [!IMPORTANT]
-> You must supply your own copy of the original game files. See [Legal notice](#legal-notice).
+> You need your own copy of the original game files. This project does not include them
+> (see [What you need](#what-you-need)).
 
-## Quick start
+## Get started
 
-```sh
-cargo build --release
-cp /path/to/install/{SCRANTIC.SCR,RESOURCE.MAP,RESOURCE.001} target/release/   # see Requirements
-target/release/open-scrantic
-```
+1. **Download** the program for your system from the
+   [latest release](https://github.com/glauberlima/open-scrantic/releases/latest):
 
-The game files and `SCRANTIC.INI` are always read from the directory of the executable, so keep
-them side by side. It opens in a resizable window and scales to its size; **Esc** exits.
+   | System  | File                            |
+   |---------|---------------------------------|
+   | Windows | `open-scrantic-windows-x64.exe` |
+   | macOS   | `open-scrantic-macos`           |
+   | Linux   | `open-scrantic-linux-x64`       |
 
-| Option         | Effect                                |
-|----------------|---------------------------------------|
-| `--fullscreen` | start fullscreen instead of windowed  |
-| `-V, --version`| print the version and exit            |
-| `-h, --help`   | print the usage and exit              |
+2. **Put it in the same folder** as the three original game files (`SCRANTIC.SCR`, `RESOURCE.MAP`
+   and `RESOURCE.001`).
+3. **Run it.** It opens in a window; press **Esc** to exit. Start it with `--fullscreen` to fill the
+   screen.
 
-Sound and visual options live in `SCRANTIC.INI` (see [Configuration](#configuration)).
+<details>
+<summary>Your system refuses to open the file?</summary>
 
-## How it works
+The program is not code-signed, so your system may warn about it.
+
+- **Windows:** in the SmartScreen window, click **More info**, then **Run anyway**.
+- **macOS:** open Terminal in the folder and run
+  `chmod +x open-scrantic-macos && xattr -d com.apple.quarantine open-scrantic-macos`, then
+  `./open-scrantic-macos`.
+- **Linux:** run `chmod +x open-scrantic-linux-x64`, then `./open-scrantic-linux-x64`. If it complains
+  about a missing sound library, install ALSA (`libasound2` on Debian and Ubuntu).
+
+</details>
+
+## What you need
+
+The three files from the original *Screen Antics: Johnny Castaway* installation (Windows 3.1), all in
+one folder next to the program:
+
+| File           | Size      | What it is                              |
+|----------------|-----------|-----------------------------------------|
+| `SCRANTIC.SCR` | 295,952   | the original screensaver program        |
+| `RESOURCE.MAP` | 1,461     | index of the game's resources           |
+| `RESOURCE.001` | 1,175,645 | the images and animation scripts        |
+
+Only this exact build of the game is supported.
+
+<details>
+<summary>Check that your files are the right ones</summary>
+
+| File           | SHA-256                                                            |
+|----------------|--------------------------------------------------------------------|
+| `SCRANTIC.SCR` | `7811b526b36bba2f08326d7a680f2f063190b4278e5a36393fde5a02080b0262` |
+| `RESOURCE.MAP` | `3d9ec330aab96bbe5a44ce34f5945703862e82b195088590b7adfef5d7345da7` |
+| `RESOURCE.001` | `df9c2213f7c0abacf4e302cb53a476f9f220579c07ba350b167e351eed548eae` |
+
+Run `shasum -a 256 SCRANTIC.SCR RESOURCE.MAP RESOURCE.001` (macOS) or `sha256sum` (Linux) and compare.
+On Windows, use `certutil -hashfile <file> SHA256`.
+
+</details>
+
+## Settings
+
+Options and story progress are stored in `SCRANTIC.INI`, next to the program. It is created on the
+first run and rewritten when you exit normally, so edit it only while the program is closed. Keys are
+case-insensitive.
+
+**Options** (`0` = off, `1` = on; default `1`):
+
+| Key          | Effect when off                           |
+|--------------|-------------------------------------------|
+| `Background` | no island or ocean background             |
+| `Clouds`     | no clouds in the sky                      |
+| `Waves`      | no shore waves or ocean whitecaps         |
+| `Sounds`     | sound effects muted                       |
+
+To start over, delete `SCRANTIC.INI`. If it contains an invalid value, it is replaced by the
+defaults, story progress included.
+
+<details>
+<summary>Story state (advanced)</summary>
+
+Maintained by the program; edit only to force a chapter or time of day.
+
+| Key            | Default | Meaning                                                              |
+|----------------|---------|----------------------------------------------------------------------|
+| `NumDays`      | `0`     | story chapter of the day, 1–11; advances once per calendar day       |
+| `Introduction` | `0`     | next chapter to show; the chapter plays when it is `<= NumDays`      |
+| `CurrentYear`, `CurrentMonth`, `CurrentDay` | `0` | date of the last run, used to detect a new day |
+| `StartTime`    | `900`   | start of the 16-half-hour day/night cycle, as `HHMM`                 |
+
+An out-of-range `NumDays` (below 2 or above 11) restarts the story at chapter 1 on the next day
+change.
+
+</details>
+
+## FAQ
+
+**Why do I need the original files?**
+The art, animation scripts and sounds are copyrighted by their owners. This project reimplements
+only the engine and reads those assets when it runs.
+
+**Does it work with any build of the game?**
+No. The loader checks known strings in `SCRANTIC.SCR` and rejects other builds of the executable.
+
+**Where is my progress saved?**
+In `SCRANTIC.INI` (see [Settings](#settings)).
+
+**How faithful is it?**
+Engine behavior follows the disassembly of the original. The settings dialog is not reimplemented,
+and a few intentional differences are listed in [`docs/ENGINE.md`](docs/ENGINE.md).
+
+## About the project
+
+Open Scrantic is a reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny
+Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
+screensaver. The program contains **only the logic**; art, scripts, sounds and game tables are read
+from your original files at runtime.
 
 ```text
 SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalogue, walk routes, RNG seed
@@ -50,66 +145,40 @@ RESOURCE.001 ─┴► assets::resource  ──► images, palette, TTM/ADS scri
                                                                       winit + softbuffer + rodio
 ```
 
-The disassembly of the original executable is the ground truth for behavior, including the original
-16-bit arithmetic and random number generator. Recovered formats, VM semantics, story rules, timing
-and the deliberate deviations (for example, full-frame redraw instead of dirty rectangles) are
-recorded in [`docs/ENGINE.md`](docs/ENGINE.md).
+The disassembly is the ground truth for behavior, including the original 16-bit arithmetic and random
+number generator. Recovered formats, VM semantics, story rules, timing and the deliberate deviations
+(for example, full-frame redraw instead of dirty rectangles) are recorded in
+[`docs/ENGINE.md`](docs/ENGINE.md).
 
-## Requirements
+## For developers
 
-- Rust 1.99.1 (pinned in `rust-toolchain.toml`)
-- The files of the original installation, in one directory:
+### Build from source
 
-| File           | Size      | SHA-256                                                            | Contents                                               |
-|----------------|-----------|--------------------------------------------------------------------|--------------------------------------------------------|
-| `SCRANTIC.SCR` | 295,952   | `7811b526b36bba2f08326d7a680f2f063190b4278e5a36393fde5a02080b0262` | original Win16 executable (sounds + game-logic tables) |
-| `RESOURCE.MAP` | 1,461     | `3d9ec330aab96bbe5a44ce34f5945703862e82b195088590b7adfef5d7345da7` | resource index                                         |
-| `RESOURCE.001` | 1,175,645 | `df9c2213f7c0abacf4e302cb53a476f9f220579c07ba350b167e351eed548eae` | images (BMP/SCR), palette, animation scripts (TTM/ADS) |
+Requires Rust 1.99.1 (pinned in `rust-toolchain.toml`). On Linux, also install the ALSA headers and
+`pkg-config` (`libasound2-dev pkg-config` on Debian and Ubuntu).
 
-Check your copy with `shasum -a 256 SCRANTIC.SCR RESOURCE.MAP RESOURCE.001` (`sha256sum` on Linux).
+```sh
+cargo build --release
+cp /path/to/install/{SCRANTIC.SCR,RESOURCE.MAP,RESOURCE.001} target/release/
+target/release/open-scrantic
+```
 
-## Configuration
+The game files and `SCRANTIC.INI` are always read from the directory of the executable.
 
-Options and story progress are stored in `SCRANTIC.INI`, section `[ScreenSaver.ScreenAntics]`, using
-the same keys as the original. The file always sits next to the executable (the location cannot be
-changed). If it is missing it is created with the defaults. If any value is invalid (not an
-integer, or out of range) the whole file is replaced by the defaults, story progress included.
-The file is rewritten on clean exit only, so edit it while the program is closed. Keys are
-case-insensitive; unknown keys are ignored.
+| Option          | Effect                               |
+|-----------------|--------------------------------------|
+| `--fullscreen`  | start fullscreen instead of windowed |
+| `-V, --version` | print the version and exit           |
+| `-h, --help`    | print the usage and exit             |
 
-**Options** (`0` = off, `1` = on; default `1`):
-
-| Key          | Effect when off                                                         |
-|--------------|-------------------------------------------------------------------------|
-| `Background` | no island or ocean background composition                               |
-| `Clouds`     | no clouds in the sky                                                    |
-| `Waves`      | no shore waves or ocean whitecaps                                       |
-| `Sounds`     | sound effects muted                                                     |
-
-**Story state** (maintained by the engine; edit only to force a chapter or time of day):
-
-| Key            | Default | Meaning                                                              |
-|----------------|---------|----------------------------------------------------------------------|
-| `NumDays`      | `0`     | story chapter of the day, 1–11; advances once per calendar day       |
-| `Introduction` | `0`     | next chapter to show; the chapter plays when it is `<= NumDays`      |
-| `CurrentYear`, `CurrentMonth`, `CurrentDay` | `0` | date of the last run, used to detect a new day |
-| `StartTime`    | `900`   | start of the 16-half-hour day/night cycle, as `HHMM`                 |
-
-An out-of-range `NumDays` (below 2 or above 11) restarts the story at chapter 1 on the next day
-change. Delete the file to reset everything.
-
-## Release build
-
-`cargo build --release` produces an optimized, portable binary at `target/release/open-scrantic`
-(fat LTO, a single codegen unit, `panic = "abort"`, stripped symbols).
-
-For a binary tuned to the build machine only (it may not run on older CPUs):
+The release profile is optimized and portable (fat LTO, a single codegen unit, `panic = "abort"`,
+stripped symbols). For a binary tuned to the build machine only (it may not run on older CPUs):
 
 ```sh
 RUSTFLAGS="-C target-cpu=native" cargo build --release
 ```
 
-## Development
+### Development
 
 ```sh
 OPEN_SCRANTIC_DATA=/path/to/install cargo test                  # tests against the real data
@@ -128,23 +197,7 @@ Architecture:
 
 See [`AGENTS.md`](AGENTS.md) for the full architecture notes and conventions.
 
-## FAQ
-
-**Why do I need the original files?**
-The art, animation scripts and sounds are copyrighted by their owners. This project reimplements
-only the engine and reads those assets at runtime.
-
-**Does it work with any build of the game?**
-No. The loader validates known strings in `SCRANTIC.SCR` and rejects other builds of the executable.
-
-**How faithful is it?**
-Engine behavior follows the disassembly; the settings UI is not reimplemented, and a few
-intentional differences are listed in [`docs/ENGINE.md`](docs/ENGINE.md).
-
-**Where is my progress saved?**
-See [Configuration](#configuration).
-
-## Contributing
+### Contributing
 
 Run these before sending changes; warnings fail the build (`Cargo.toml` denies them):
 
@@ -158,6 +211,15 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Nev
 data. When porting more logic, cite the original address in the comment (`seg10:1acb`, `DS:1756`),
 as existing code does.
 
+### Releases
+
+CI (format, clippy, release build on Linux, macOS and Windows) runs on every pull request and push to
+`main`. A release is cut manually from the **Release** workflow (Actions tab): it derives the next
+version from the Conventional Commits since the last tag (git-cliff), builds the three binaries,
+scans them with VirusTotal, commits the updated `CHANGELOG.md`, tags the version and publishes the
+GitHub release with the binaries and their SHA-256 checksums. If no commit since the last tag
+deserves a release (`feat`, `fix`, `perf`, `refactor`, `docs`), nothing is published.
+
 ## Legal notice
 
 *Screen Antics: Johnny Castaway* is a trademark and copyright of its respective owners (Sierra /
@@ -168,7 +230,7 @@ endorsed by them. It does not include or distribute any original game data.
 
 The original `SCRANTIC.SCR` was disassembled and decompiled with
 [REA: Reverse Engineer Anything](https://github.com/morluto/rea); the findings are in
-`docs/ENGINE.md`.
+[`docs/ENGINE.md`](docs/ENGINE.md).
 
 ## License
 
