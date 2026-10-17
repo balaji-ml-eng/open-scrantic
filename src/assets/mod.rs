@@ -92,4 +92,41 @@ mod tests {
         let ocean = data.archive.scr("OCEAN00.SCR").unwrap();
         assert_eq!((ocean.w, ocean.h), (640, 480));
     }
+
+    #[test]
+    fn corrupt_input_is_an_error_not_a_panic() {
+        assert!(exe::ExeData::parse(&[]).is_err());
+        assert!(exe::ExeData::parse(&[0; 100]).is_err());
+        let mut mz = vec![0u8; 0x80];
+        mz[..2].copy_from_slice(b"MZ");
+        mz[0x3C] = 0xF0;
+        assert!(exe::ExeData::parse(&mz).is_err());
+
+        // A map announcing 65535 entries over a tiny volume.
+        let mut map = vec![0u8; 21];
+        map[19] = 0xFF;
+        map[20] = 0xFF;
+        assert!(resource::Archive::new(&map, &[0; 32]).is_err());
+
+        assert!(resource::decompress(&[2, 0xFF, 0xFF, 0xFF, 0x7F]).is_err()); // absurd size
+        assert!(resource::decompress(&[2, 8, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF]).is_err()); // invalid LZW code
+        assert!(resource::decompress(&[9, 0, 0, 0, 0]).is_err()); // unknown method
+    }
+
+    #[test]
+    fn truncated_installs_are_errors_not_panics() {
+        let Some(dir) = data_dir() else { return };
+        let exe = fs::read(dir.join("SCRANTIC.SCR")).expect("SCRANTIC.SCR");
+        let map = fs::read(dir.join("RESOURCE.MAP")).expect("RESOURCE.MAP");
+        let volume = fs::read(dir.join("RESOURCE.001")).expect("RESOURCE.001");
+        for cut in (0..exe.len()).step_by(997) {
+            let _ = exe::ExeData::parse(&exe[..cut]);
+        }
+        for cut in (0..volume.len()).step_by(4999) {
+            let _ = resource::Archive::new(&map, &volume[..cut]);
+        }
+        for cut in 0..map.len() {
+            let _ = resource::Archive::new(&map[..cut], &volume);
+        }
+    }
 }

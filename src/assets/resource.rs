@@ -4,12 +4,22 @@ use std::collections::HashMap;
 
 use super::{AssetError, Result};
 
-fn u16_at(d: &[u8], o: usize) -> u16 {
-    u16::from_le_bytes([d[o], d[o + 1]])
+/// Largest decompressed payload accepted; the real ones are a few hundred KB.
+const MAX_UNPACKED: usize = 16 << 20;
+
+fn bytes(d: &[u8], start: usize, len: usize) -> Result<&[u8]> {
+    start
+        .checked_add(len)
+        .and_then(|end| d.get(start..end))
+        .ok_or_else(|| AssetError::Format("truncated resource data".into()))
 }
 
-fn u32_at(d: &[u8], o: usize) -> u32 {
-    u32::from_le_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]])
+fn u16_at(d: &[u8], o: usize) -> Result<u16> {
+    Ok(u16::from_le_bytes(bytes(d, o, 2)?.try_into().unwrap()))
+}
+
+fn u32_at(d: &[u8], o: usize) -> Result<u32> {
+    Ok(u32::from_le_bytes(bytes(d, o, 4)?.try_into().unwrap()))
 }
 
 pub struct Archive {
@@ -21,20 +31,18 @@ impl Archive {
         if map.len() < 21 {
             return Err(AssetError::Format("RESOURCE.MAP too small".into()));
         }
-        let count = u16_at(map, 19) as usize;
+        let count = u16_at(map, 19)? as usize;
         let mut files = HashMap::with_capacity(count);
         for i in 0..count {
             let entry = 21 + i * 8;
-            let offset = u32_at(map, entry + 4) as usize;
-            let header = volume
-                .get(offset..offset + 17)
-                .ok_or_else(|| AssetError::Format("RESOURCE.MAP entry out of range".into()))?;
+            let offset = u32_at(map, entry + 4)? as usize;
+            let header =
+                bytes(volume, offset, 17).map_err(|_| AssetError::Format("RESOURCE.MAP entry out of range".into()))?;
             let name_end = header[..13].iter().position(|&b| b == 0).unwrap_or(13);
             let name = String::from_utf8_lossy(&header[..name_end]).to_ascii_uppercase();
-            let size = u32_at(header, 13) as usize;
-            let data = volume
-                .get(offset + 17..offset + 17 + size)
-                .ok_or_else(|| AssetError::Format(format!("{name}: data out of range")))?;
+            let size = u32_at(header, 13)? as usize;
+            let data = bytes(volume, offset + 17, size)
+                .map_err(|_| AssetError::Format(format!("{name}: data out of range")))?;
             files.insert(name, data.to_vec());
         }
         Ok(Self { files })
@@ -49,15 +57,13 @@ impl Archive {
         let mut p = 0;
         while p + 8 <= data.len() {
             let tag = String::from_utf8_lossy(&data[p..p + 4]).into_owned();
-            let size = u32_at(data, p + 4);
+            let size = u32_at(data, p + 4)?;
             p += 8;
             if size & 0x8000_0000 != 0 {
                 continue; // container chunk: its children follow inline
             }
             let size = size as usize;
-            let body = data
-                .get(p..p + size)
-                .ok_or_else(|| AssetError::Format(format!("{name}: bad chunk {tag}")))?;
+            let body = bytes(data, p, size).map_err(|_| AssetError::Format(format!("{name}: bad chunk {tag}")))?;
             out.insert(tag, body);
             p += size;
         }
@@ -74,14 +80,14 @@ impl Archive {
     pub fn bmp(&self, name: &str) -> Result<Bmp> {
         let c = self.chunks(name)?;
         let inf = Self::chunk(&c, name, "INF:")?;
-        let count = u16_at(inf, 0) as usize;
+        let count = u16_at(inf, 0)? as usize;
         let pixels = decompress(Self::chunk(&c, name, "BIN:")?)?;
         let mut sprites = Vec::with_capacity(count);
         let mut nibble = 0usize;
         for i in 0..count {
-            let w = u16_at(inf, 2 + i * 2) as usize;
-            let h = u16_at(inf, 2 + count * 2 + i * 2) as usize;
-            let px = unpack_4bpp(&pixels, nibble, w * h);
+            let w = u16_at(inf, 2 + i * 2)? as usize;
+            let h = u16_at(inf, 2 + count * 2 + i * 2)? as usize;
+            let px = unpack_4bpp(&pixels, nibble, w * h, name)?;
             nibble += w * h;
             sprites.push(Sprite {
                 w: w as i32,
@@ -95,12 +101,12 @@ impl Archive {
     pub fn scr(&self, name: &str) -> Result<Picture> {
         let c = self.chunks(name)?;
         let dim = Self::chunk(&c, name, "DIM:")?;
-        let (w, h) = (u16_at(dim, 0) as usize, u16_at(dim, 2) as usize);
+        let (w, h) = (u16_at(dim, 0)? as usize, u16_at(dim, 2)? as usize);
         let pixels = decompress(Self::chunk(&c, name, "BIN:")?)?;
         Ok(Picture {
             w,
             h,
-            px: unpack_4bpp(&pixels, 0, w * h),
+            px: unpack_4bpp(&pixels, 0, w * h, name)?,
         })
     }
 
@@ -119,7 +125,7 @@ impl Archive {
 
     pub fn ttm(&self, name: &str) -> Result<Ttm> {
         let c = self.chunks(name)?;
-        let pages = u16_at(Self::chunk(&c, name, "PAG:")?, 0) as usize;
+        let pages = u16_at(Self::chunk(&c, name, "PAG:")?, 0)? as usize;
         let code = decompress(Self::chunk(&c, name, "TT3:")?)?;
         Ttm::parse(&code, pages)
     }
@@ -129,28 +135,32 @@ impl Archive {
         let res = Self::chunk(&c, name, "RES:")?;
         let mut ttms = Vec::new();
         let mut p = 2;
-        for _ in 0..u16_at(res, 0) {
-            let id = u16_at(res, p);
-            let end = res[p + 2..]
-                .iter()
-                .position(|&b| b == 0)
-                .map(|e| p + 2 + e)
-                .unwrap_or(res.len());
-            ttms.push((id, String::from_utf8_lossy(&res[p + 2..end]).into_owned()));
-            p = end + 1;
+        for _ in 0..u16_at(res, 0)? {
+            let id = u16_at(res, p)?;
+            let text = res
+                .get(p + 2..)
+                .ok_or_else(|| AssetError::Format(format!("{name}: truncated RES chunk")))?;
+            let len = text.iter().position(|&b| b == 0).unwrap_or(text.len());
+            ttms.push((id, String::from_utf8_lossy(&text[..len]).into_owned()));
+            p += 2 + len + 1;
         }
         let script = decompress(Self::chunk(&c, name, "SCR:")?)?;
         Ok(Ads { ttms, script })
     }
 }
 
-fn unpack_4bpp(packed: &[u8], first_nibble: usize, count: usize) -> Vec<u8> {
-    (first_nibble..first_nibble + count)
+/// Unpacks `count` nibbles; reads past the end of `packed` give 0, but a size far beyond the data is
+/// rejected so that a corrupt header cannot trigger a huge allocation.
+fn unpack_4bpp(packed: &[u8], first_nibble: usize, count: usize, name: &str) -> Result<Vec<u8>> {
+    if first_nibble.saturating_add(count) > MAX_UNPACKED * 2 {
+        return Err(AssetError::Format(format!("{name}: image too large")));
+    }
+    Ok((first_nibble..first_nibble + count)
         .map(|n| {
             let b = packed.get(n / 2).copied().unwrap_or(0);
             if n % 2 == 0 { b >> 4 } else { b & 15 }
         })
-        .collect()
+        .collect())
 }
 
 /// A sprite: 8-bit palette indices, index 0 is transparent.
@@ -197,7 +207,7 @@ impl Ttm {
         let mut scenes = Vec::new();
         let mut p = 0;
         while p + 2 <= code.len() {
-            let opcode = u16_at(code, p);
+            let opcode = u16_at(code, p)?;
             p += 2;
             let nargs = (opcode & 15) as usize;
             let mut op = Op {
@@ -219,7 +229,7 @@ impl Ttm {
                     return Err(AssetError::Format(format!("bad TTM opcode {opcode:04x}")));
                 }
                 for i in 0..nargs {
-                    op.args[i] = u16_at(code, p + i * 2) as i16;
+                    op.args[i] = u16_at(code, p + i * 2)? as i16;
                 }
                 p += nargs * 2;
             }
@@ -257,7 +267,10 @@ pub fn decompress(chunk: &[u8]) -> Result<Vec<u8>> {
     if chunk.len() < 5 {
         return Err(AssetError::Format("compressed chunk too small".into()));
     }
-    let size = u32_at(chunk, 1) as usize;
+    let size = u32_at(chunk, 1)? as usize;
+    if size > MAX_UNPACKED {
+        return Err(AssetError::Format("decompressed size too large".into()));
+    }
     let out = match chunk[0] {
         1 => rle(&chunk[5..], size),
         2 => lzw(&chunk[5..], size),
@@ -315,6 +328,9 @@ fn lzw(src: &[u8], size: usize) -> Vec<u8> {
     while out.len() < size {
         let Some(new) = get(nbits) else { break };
         let new = new as usize;
+        if new > free {
+            break; // invalid code: the decompressed size check then reports the corruption
+        }
         bitpos += nbits;
         if new == 256 {
             let span = nbits << 3;
