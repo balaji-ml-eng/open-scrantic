@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.1.1 — 2026-10-17
+
+### Bug Fixes
+
+- Harden asset loading against truncated or corrupt files ([5cff2cc](https://github.com/glauberlima/open-scrantic/commit/5cff2ccb621579ef6597010824bc2f8ffed69d63))
+- Avoid a crash, a busy loop and a hang ([b88b1af](https://github.com/glauberlima/open-scrantic/commit/b88b1afda9834ed948fa70e25339447a6fb65acb))
+
+
+### Documentation
+
+- Rewrite README for end users ([4f6c8d2](https://github.com/glauberlima/open-scrantic/commit/4f6c8d2f29017ee5f7725b39c1018dbda5658551))
+- Call it a screensaver and add an AI disclosure ([3cf9697](https://github.com/glauberlima/open-scrantic/commit/3cf9697a380139d836e6951456ede1516211687f))
+- Tidy README, update logo and footer ([1c22ffa](https://github.com/glauberlima/open-scrantic/commit/1c22ffa9b145142a4bcade2362162b09add7a2c1))
+- Add intro paragraph and flat badges ([1be1301](https://github.com/glauberlima/open-scrantic/commit/1be13011b20bff4008af80131e86eb12ea645bbc))
+- Widen README logo ([d5ce2de](https://github.com/glauberlima/open-scrantic/commit/d5ce2de0c449030a43d430200b8f98c3ac89044f))
+- Add ARCHITECTURE.md, fix SCRANTIC.EXE naming and add package metadata ([920153a](https://github.com/glauberlima/open-scrantic/commit/920153a8e263216456961eb0f817bcef0e02b747))
+- Update the wider logo ([5c5ad9d](https://github.com/glauberlima/open-scrantic/commit/5c5ad9d60a4962138a8a1169705bc6478bbeab40))
+- Add spacing around the README logo ([8fa5114](https://github.com/glauberlima/open-scrantic/commit/8fa511463a1e6d5610b513972512e0ce2c2a1482))
+- Fix spacing around the README logo ([2c22dbf](https://github.com/glauberlima/open-scrantic/commit/2c22dbf5bae707cd4b6d5271c21b56b62024ab2d))
+- Add island emoji to the README title ([400ee47](https://github.com/glauberlima/open-scrantic/commit/400ee47fdab4c806e778430964d3370e4d9c880e))
+- Add SECURITY.md, document original quirks and polish wording ([30866ca](https://github.com/glauberlima/open-scrantic/commit/30866ca056698f8cc8fca063f4956677b3b09c9d))
+- Drop "faithful" from the project description ([f8c65f6](https://github.com/glauberlima/open-scrantic/commit/f8c65f653748e7e0a8f20c921d7d3f54cdf1f313))
+- Use a static license badge ([a8cb0b3](https://github.com/glauberlima/open-scrantic/commit/a8cb0b38cc052961a5da01af3c30ffe85777d4fa))
+
+
+### Performance
+
+- Avoid per-frame copies in the TTM interpreter ([bde010e](https://github.com/glauberlima/open-scrantic/commit/bde010e1bd27d5a74b828cc2991a3957cf7acc45))
+
 ## v0.1.0 — 2026-10-17
 
 ### Breaking Changes
