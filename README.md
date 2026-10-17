@@ -4,7 +4,7 @@
 
 ### Johnny Castaway, the classic 1993 screensaver, running natively on Windows, macOS and Linux.
 
-<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="560">
+<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="640">
 
 &nbsp;
 
