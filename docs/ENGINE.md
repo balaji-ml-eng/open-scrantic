@@ -1,5 +1,7 @@
 # How Johnny Castaway works
 
+For how the Rust code is organized, see [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 Reverse-engineering notes on `SCRANTIC.SCR` (Win16 NE executable, Borland C++ 1991, 13 code
 segments + DGROUP). Addresses are written as `segment:offset`; `DS:xxxx` is the data segment.
 

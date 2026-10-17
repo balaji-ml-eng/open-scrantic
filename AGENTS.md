@@ -41,6 +41,9 @@ reproduce the original 16-bit arithmetic (wrapping `u16`/`i16`, unsigned `rand()
 
 ## Architecture
 
+A longer write-up (startup, clocks, frame pipeline, story planning, scheduler) is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the summary below is what to know before editing.
+
 Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and the `snapshot` example.
 
 - **`assets/`** — `resource.rs` parses the Dynamix archive (chunked resources, RLE/LZW, 4 bpp

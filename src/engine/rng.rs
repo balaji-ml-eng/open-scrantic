@@ -1,4 +1,4 @@
-//! The original additive lagged-Fibonacci generator (seg4:1e86), seeded from SCRANTIC.EXE.
+//! The original additive lagged-Fibonacci generator (seg4:1e86), seeded from SCRANTIC.SCR.
 
 pub struct Rng {
     table: [u16; 56],

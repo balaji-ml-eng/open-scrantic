@@ -13,7 +13,8 @@
 </div>
 
 Open Scrantic brings the original *Screen Antics: Johnny Castaway* screensaver (Sierra/Dynamix, 1993)
-back to modern computers. Watch Johnny go about his days on his tiny island while a story unfolds from
+back to modern computers: a free, open-source Rust reimplementation of the classic Windows 3.1
+screensaver. Watch Johnny go about his days on his tiny island while a story unfolds from
 one day to the next, with the same behavior as the original.
 
 [Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [For developers](#for-developers) ·
@@ -182,7 +183,8 @@ OPEN_SCRANTIC_DEBUG=1 target/release/open-scrantic              # prints each se
 cargo run --release --example snapshot -- /path/to/install /tmp/out 2000 100 1000 42   # headless PNG render
 ```
 
-Architecture:
+Architecture (the full write-up, with the data flow and how a frame is produced, is in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
 
 - `src/assets/` — reading the original files: the Dynamix resource archive (RLE/LZW, BMP, SCR,
   PAL, TTM, ADS) and the NE executable (`WAVESFXn` sounds and data-segment tables).
