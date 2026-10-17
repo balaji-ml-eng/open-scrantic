@@ -1,6 +1,6 @@
 <div align="center">
 
-# Open Scrantic
+# 🏝️ Open Scrantic
 
 ### Johnny Castaway, the classic 1993 screensaver, running natively on Windows, macOS and Linux.
 
