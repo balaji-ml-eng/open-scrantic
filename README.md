@@ -130,7 +130,7 @@ In `SCRANTIC.INI` (see [Settings](#settings)).
 
 ## About the project
 
-Open Scrantic is a faithful, reverse-engineered reimplementation of *Screen Antics: Johnny
+Open Scrantic is a reverse-engineered reimplementation of *Screen Antics: Johnny
 Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
 screensaver. The program contains only the engine logic.
 
