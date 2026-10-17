@@ -1,10 +1,10 @@
 //! Headless run: steps the engine with a fixed wall clock and saves PNG snapshots.
-//! Usage: cargo run --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
+//! Usage: cargo run --example snapshot -- INSTALL_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
 
 use std::fs;
 use std::path::Path;
 
-use open_scrantic::assets::GameData;
+use open_scrantic::assets::ScreensaverData;
 use open_scrantic::engine::config::Config;
 use open_scrantic::engine::gfx::{HEIGHT, WIDTH};
 use open_scrantic::engine::{Clock, Engine, STEP_MS, TICK_MS};
@@ -77,7 +77,7 @@ fn arg<T: std::str::FromStr>(a: &[String], i: usize, name: &str, default: T) -> 
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let dir = Path::new(a.get(1).unwrap_or_else(|| fail("missing GAME_DIR")));
+    let dir = Path::new(a.get(1).unwrap_or_else(|| fail("missing INSTALL_DIR")));
     let out = Path::new(a.get(2).unwrap_or_else(|| fail("missing OUT_DIR")));
     let steps: u64 = arg(&a, 3, "STEPS", 400);
     let every: u64 = arg(&a, 4, "EVERY", 50);
@@ -106,7 +106,7 @@ fn main() {
         (config.num_days, config.intro) = (story_day, story_day);
         (config.year, config.month, config.day) = (clock.year, clock.month, clock.day);
     }
-    let mut engine = Engine::new(GameData::load(dir).unwrap(), config, seed).unwrap();
+    let mut engine = Engine::new(ScreensaverData::load(dir).unwrap(), config, seed).unwrap();
     match a.get(8).map(String::as_str) {
         Some("list") => {
             for i in 0..engine.scene_count() {

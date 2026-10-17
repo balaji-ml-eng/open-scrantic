@@ -16,7 +16,7 @@ use std::rc::Rc;
 use chrono::{Datelike, Local, Timelike};
 
 use crate::assets::resource::{Archive, Bmp};
-use crate::assets::{GameData, Result};
+use crate::assets::{Result, ScreensaverData};
 use ads::AdsRuntime;
 use config::Config;
 use gfx::Canvas;
@@ -69,7 +69,7 @@ impl Clock {
 }
 
 pub struct Engine {
-    data: GameData,
+    data: ScreensaverData,
     pub config: Config,
     rng: Rng,
     island: Island,
@@ -103,7 +103,7 @@ fn half_hour_slot(t: i32) -> i32 {
 }
 
 impl Engine {
-    pub fn new(data: GameData, config: Config, seed_time: u64) -> Result<Self> {
+    pub fn new(data: ScreensaverData, config: Config, seed_time: u64) -> Result<Self> {
         let palette = data.archive.palette("JOHNCAST.PAL")?;
         let johnwalk = Rc::new(data.archive.bmp("JOHNWALK.BMP")?);
         let island = Island::new(&data.archive, data.exe.whitecap_seqs.clone())?;
@@ -547,14 +547,14 @@ impl Engine {
 mod tests {
     use super::*;
 
-    fn game() -> Option<GameData> {
+    fn screensaver_data() -> Option<ScreensaverData> {
         let dir = std::env::var_os("OPEN_SCRANTIC_DATA")?;
-        Some(GameData::load(std::path::Path::new(&dir)).expect("game data"))
+        Some(ScreensaverData::load(std::path::Path::new(&dir)).expect("screensaver data"))
     }
 
     #[test]
     fn every_ads_script_loads() {
-        let Some(data) = game() else { return };
+        let Some(data) = screensaver_data() else { return };
         for (&id, name) in &data.exe.ads_names {
             AdsRuntime::load(&data.archive, id, name).unwrap_or_else(|e| panic!("{name}: {e}"));
         }
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn headless_run_completes_scenes() {
-        let Some(data) = game() else { return };
+        let Some(data) = screensaver_data() else { return };
         let mut engine = Engine::new(data, Config::default(), 4242).unwrap();
         let clock = Clock {
             year: 1993,

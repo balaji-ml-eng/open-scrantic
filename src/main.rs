@@ -221,7 +221,7 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let data = match assets::GameData::load(&open_scrantic::app_dir()) {
+    let data = match assets::ScreensaverData::load(&open_scrantic::app_dir()) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: {e}");

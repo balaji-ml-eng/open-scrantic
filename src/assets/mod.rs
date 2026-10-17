@@ -37,7 +37,7 @@ impl From<std::io::Error> for AssetError {
 
 pub type Result<T> = std::result::Result<T, AssetError>;
 
-pub struct GameData {
+pub struct ScreensaverData {
     pub archive: Archive,
     pub exe: ExeData,
 }
@@ -54,7 +54,7 @@ fn read_ci(dir: &Path, name: &str) -> Result<Vec<u8>> {
     Err(AssetError::Missing(format!("{} in {}", name, dir.display())))
 }
 
-impl GameData {
+impl ScreensaverData {
     pub fn load(dir: &Path) -> Result<Self> {
         let exe = read_ci(dir, "SCRANTIC.SCR")?;
         let map = read_ci(dir, "RESOURCE.MAP")?;
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn loads_installed_game() {
         let Some(dir) = data_dir() else { return };
-        let data = GameData::load(&dir).expect("load");
+        let data = ScreensaverData::load(&dir).expect("load");
         assert_eq!(data.exe.scenes.len(), 80);
         assert_eq!(data.exe.sounds.len(), 23);
         assert_eq!(data.exe.paths.len(), 35);
