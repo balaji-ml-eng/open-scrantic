@@ -1,0 +1,189 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  plan:
+    name: Plan release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+      skipped: ${{ steps.next.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2.14.2
+      - name: Compute next version
+        id: next
+        run: |
+          LAST=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "")
+          UNRELEASED=$(git cliff --unreleased --strip all | tr -d '[:space:]')
+          if [ -z "$UNRELEASED" ]; then
+            echo "No releasable commits since ${LAST:-the beginning}. Skipping."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG=$(git cliff --bumped-version)
+          echo "Next version: $TAG (last: ${LAST:-none})"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+
+  build-macos:
+    name: Build macOS universal
+    needs: plan
+    if: needs.plan.outputs.skipped != 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target x86_64-apple-darwin
+      - run: cargo build --release --target aarch64-apple-darwin
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            target/x86_64-apple-darwin/release/open-scrantic \
+            target/aarch64-apple-darwin/release/open-scrantic \
+            -output open-scrantic-macos
+          lipo -info open-scrantic-macos
+      - uses: actions/upload-artifact@v7
+        with:
+          name: open-scrantic-macos
+          path: open-scrantic-macos
+
+  build-linux:
+    name: Build Linux x64
+    needs: plan
+    if: needs.plan.outputs.skipped != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - run: cp target/release/open-scrantic open-scrantic-linux-x64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: open-scrantic-linux-x64
+          path: open-scrantic-linux-x64
+
+  build-windows:
+    name: Build Windows x64
+    needs: plan
+    if: needs.plan.outputs.skipped != 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - run: cp target/release/open-scrantic.exe open-scrantic-windows-x64.exe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: open-scrantic-windows-x64
+          path: open-scrantic-windows-x64.exe
+
+  # Runs only after every build succeeded, so a failed build never leaves a
+  # release commit or tag on main.
+  publish:
+    name: Publish release
+    needs: [plan, build-macos, build-linux, build-windows]
+    if: needs.plan.outputs.skipped != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2.14.2
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: |
+          sha256sum open-scrantic-* > checksums.txt
+          cat checksums.txt
+
+      - name: Scan binaries with VirusTotal
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: bash scripts/virustotal-scan.sh dist/open-scrantic-* > vt-results.txt
+
+      - name: Build release notes
+        run: |
+          {
+            printf '## Security scan\n\nAll binaries were scanned by VirusTotal before this release was published. Binaries are unsigned, so heuristic false positives are possible.\n\n'
+            printf '| Binary | Result | Report |\n|--------|--------|--------|\n'
+            while IFS='|' read -r name malicious total _ gui_url; do
+              [ -z "$name" ] && continue
+              printf '| %s | %s/%s engines flagged | [View report](%s) |\n' "$name" "$malicious" "$total" "$gui_url"
+            done < vt-results.txt
+            printf '\n## Running\n\nThe binary contains only the engine. Place it next to the original `SCRANTIC.SCR`, `RESOURCE.MAP` and `RESOURCE.001` files.\n\n---\n\n'
+            git cliff --unreleased --tag "$TAG" --strip header
+          } > notes.md
+          cat notes.md
+
+      - name: Update version and CHANGELOG
+        run: |
+          VERSION="${TAG#v}"
+          sed -i "0,/^version = \".*\"/s//version = \"$VERSION\"/" Cargo.toml
+          perl -0pi -e "s/(name = \"open-scrantic\"\nversion = \")[^\"]*/\${1}$VERSION/" Cargo.lock
+          touch CHANGELOG.md
+          git cliff --unreleased --tag "$TAG" --prepend CHANGELOG.md
+          git diff --stat
+
+      - name: Commit, tag, and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md Cargo.toml Cargo.lock
+          git commit -m "chore(release): $TAG"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin HEAD:main "$TAG"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          body_path: notes.md
+          files: |
+            dist/open-scrantic-*
+            dist/checksums.txt

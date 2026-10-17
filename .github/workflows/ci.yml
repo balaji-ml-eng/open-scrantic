@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup component add rustfmt
+      - run: cargo fmt --check
+
+  lint:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup component add clippy
+      - uses: Swatinem/rust-cache@v2
+      # Lints are denied in Cargo.toml [lints]; any warning fails the build.
+      - run: cargo clippy --all-targets
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+      - name: Install toolchain (from rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: Check binary
+        run: |
+          BIN=target/release/open-scrantic
+          [ "$RUNNER_OS" = "Windows" ] && BIN="$BIN.exe"
+          ls -l "$BIN"

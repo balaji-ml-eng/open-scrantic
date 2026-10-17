@@ -1,0 +1,31 @@
+[changelog]
+header = "# Changelog\n\n"
+body = """
+## {{ version }} — {{ now() | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+
+{% for commit in commits %}\
+- {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/glauberlima/open-scrantic/commit/{{ commit.id }}))
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[bump]
+initial_tag = "v0.1.0"
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+tag_pattern = "v[0-9].*"
+commit_parsers = [
+  { message = "^(feat|fix|refactor)(\\([^)]*\\))?!",  group = "Breaking Changes" },
+  { message = "^feat",                            group = "Features" },
+  { message = "^fix",                             group = "Bug Fixes" },
+  { message = "^perf",                            group = "Performance" },
+  { message = "^refactor",                        group = "Refactoring" },
+  { message = "^docs",                            group = "Documentation" },
+  { message = "^ci|^test|^build|^chore",         skip = true },
+  { message = ".*",                               skip = true },
+]
