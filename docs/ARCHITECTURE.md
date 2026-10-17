@@ -15,13 +15,16 @@ see [`../AGENTS.md`](../AGENTS.md).
   executable are validated against known strings, so other builds are rejected.
 - **Original arithmetic.** Wrapping `u16`/`i16` math and the original random number generator
   (`engine/rng.rs`) are kept so that sequences match. Do not use another RNG.
+- **Untrusted input is an error, not a crash.** The original files come from the user's disk and may
+  be truncated or from another build: every read in `assets/` is bounds-checked and returns
+  `AssetError`, and decompressed sizes are capped.
 - **Deterministic and headless-testable.** The wall clock is injected (`Clock`), time is counted in
   ticks, and the engine never touches the window or the audio device, so it can run without either.
 
 ## Data flow
 
 ```text
-SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalogue, walk routes, RNG seed
+SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalog, walk routes, RNG seed
 RESOURCE.MAP ─┐
 RESOURCE.001 ─┴► assets::resource  ──► images, palette, TTM/ADS scripts
                                               │
@@ -43,7 +46,7 @@ Three layers, with dependencies pointing downward only:
 | Module                | Role                                                                                       | Original      |
 |-----------------------|--------------------------------------------------------------------------------------------|---------------|
 | `assets/mod.rs`       | `GameData::load`: finds the three files (case-insensitive), builds `Archive` + `ExeData`   | —             |
-| `assets/exe.rs`       | NE executable parser: `WAVESFXn` sounds, scene catalogue, walk tables, RNG seed, whitecaps | data segment  |
+| `assets/exe.rs`       | NE executable parser: `WAVESFXn` sounds, scene catalog, walk tables, RNG seed, whitecaps | data segment  |
 | `assets/resource.rs`  | Dynamix archive: RLE/LZW, 4 bpp BMP/SCR, PAL, TTM (split into frames), ADS                 | —             |
 | `engine/mod.rs`       | `Engine`: session planning, calendar/chapters, `step()` and `tick()`                       | `seg4`, `seg2`|
 | `engine/ads.rs`       | ADS script VM and the scene scheduler (`AdsRuntime::update`)                               | `seg10`       |
@@ -125,7 +128,7 @@ multiple of 640×480 that fits in 80% of the screen.
 
 ## Story: sessions and plans (`engine/mod.rs`)
 
-A **session** is a list of catalogue scene indices (`plan`) that Johnny plays through, then a new
+A **session** is a list of catalog scene indices (`plan`) that Johnny plays through, then a new
 session is planned. `new_session` computes the **day phase** (16 half-hours counted from
 `StartTime`: 12 of day, 4 of night), the **holiday** from the date, resets the island
 configuration, applies the calendar (`update_day` advances the story chapter once per calendar
@@ -140,7 +143,7 @@ day) and calls `plan_session`.
    repeatable ones.
 5. Append the final scene.
 
-`pick` filters the 80-entry catalogue by role, day phase, story day and compatibility with the
+`pick` filters the 80-entry catalog by role, day phase, story day and compatibility with the
 island layout already decided; every chosen scene calls `Island::apply_flags`, so later picks must
 be compatible (`Island::compatible`). `pending[i]` marks scenes whose start has not run yet. A
 small state machine (`story_state`) plays the chime when the chapter scene starts and advances the

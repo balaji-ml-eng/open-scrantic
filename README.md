@@ -130,12 +130,12 @@ In `SCRANTIC.INI` (see [Settings](#settings)).
 
 ## About the project
 
-Open Scrantic is a reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny
+Open Scrantic is a faithful, reverse-engineered reimplementation of *Screen Antics: Johnny
 Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
 screensaver. The program contains only the engine logic.
 
 ```text
-SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalogue, walk routes, RNG seed
+SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalog, walk routes, RNG seed
 RESOURCE.MAP ─┐
 RESOURCE.001 ─┴► assets::resource  ──► images, palette, TTM/ADS scripts
                                               │
@@ -242,7 +242,7 @@ Source code under the [MIT License](LICENSE).
 
 <div align="center">
 
-Made in Campinas, Brazil with ❤️, [Claude Code](https://claude.com/claude-code) and
+Made in Campinas, Brazil 🇧🇷 with ❤️, [Claude Code](https://claude.com/claude-code) and
 [REA](https://rea.tools/)
 
 </div>

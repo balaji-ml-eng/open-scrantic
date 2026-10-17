@@ -48,7 +48,7 @@ segments + DGROUP). Addresses are written as `segment:offset`; `DS:xxxx` is the 
 
 ## Story (`seg4`)
 
-- Catalogue of 80 scenes at `DS:1756` (17 bytes each): weight, start and end spots/headings,
+- Catalog of 80 scenes at `DS:1756` (17 bytes each): weight, start and end spots/headings,
   duration, time-of-day window, story day, flags (role: 1 opening, 2 middle, 4 final,
   8 repeatable; island modifiers: tide, night, no island, no raft, frozen waves; island position
   constraints), ADS id and tag. Scenes with ADS `0xFF` are standing pauses (3–7 s).
@@ -78,12 +78,30 @@ front of him.
 - Sounds: `WAVESFX1..25` resources (11 and 13 are missing), 8-bit, 11,025 Hz; a new sound cuts
   the previous one. `WAVESFX25` is the chime played when the chapter of the day starts.
 
+## Original quirks kept on purpose
+
+These look like bugs but match the disassembly (checked against `seg3`, `seg4` and `seg12`), so do
+not "fix" them:
+
+- **Save/restore zone (`0xA054`/`0xA064`)**: both are skipped when a frame only redraws (the
+  first-run flag at scene record `+0x0E`). The save reads the background buffer and the restore
+  writes the work buffer.
+- **A chapter scene can be dropped from its session**: the opening scene of a non-final chapter
+  joins the plan only on a 5% roll per pick (50% for scenes with flag 1). If the budget runs out
+  first, it is never played, yet the chapter still advances (`seg4:08b9`, `0ba5`).
+- **The final-scene pick can spin**: it repeats until the scene differs from the previous final
+  one, with no exit (`seg4:0911`). The port bounds this (`MAX_FINAL_PICKS`) and falls back to the
+  first final scene; see the deliberate differences below.
+
 ## Deliberate differences from the original
 
 - The original draws with dirty rectangles across three buffers; here every step recomposes the
   whole frame (background + that step's drawing). The result is the same, except for small
   artifacts of the original (e.g. shore waves "reverting" to their first frame when something
   passes over them).
+- Malformed or truncated files are reported as errors instead of crashing, and the loaders cap the
+  size of decompressed data.
+- The final-scene pick gives up after a bounded number of draws instead of looping forever.
 - The title screen stays up for 2 s (on 1993 hardware it was visible while the first session loaded).
 - Ellipses and lines use their own rasterization, which may differ by 1 px from GDI.
 - The configuration dialog and the screensaver password were not reimplemented (options can be

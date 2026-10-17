@@ -4,15 +4,15 @@ Guidance for AI coding agents (and human contributors) working in this repositor
 
 ## What this is
 
-A reverse-engineered, behavior-faithful Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993, Win16).
+A faithful, reverse-engineered Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993, Win16).
 The binary holds only the engine logic. At runtime it reads the **original installed screensaver files**
 from a directory: `SCRANTIC.SCR` (the original NE executable), `RESOURCE.MAP` and `RESOURCE.001`.
 Never commit screensaver data (the three files are git-ignored).
 
-Behaviour was recovered by disassembling `SCRANTIC.SCR`; the disassembly is the ground truth, and
+Behavior was recovered by disassembling `SCRANTIC.SCR`; the disassembly is the ground truth, and
 third-party reimplementations (jc_reborn, castaway) are only hints. `docs/ENGINE.md` records the
 recovered formats, VM semantics, story rules, timing and the deliberate deviations from the
-original — read it before changing engine behaviour. Code comments cite original addresses
+original — read it before changing engine behavior. Code comments cite original addresses
 (`seg10:1acb`, `DS:1756`); keep that convention when porting more logic.
 
 ## Commands
@@ -31,8 +31,8 @@ cargo run --release --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM
 ```
 
 The `snapshot` example runs the engine headless with a fixed clock and writes PNGs; it is the way
-to verify rendering changes (e.g. `STORY_DAY` presets a story chapter, `HHMM` picks day/night). `SCENE` forces one catalogue scene as the whole session (`list` prints the
-catalogue with indices); story scenes have `day` > 0 and some need a late `HHMM` (their phase range).
+to verify rendering changes (e.g. `STORY_DAY` presets a story chapter, `HHMM` picks day/night). `SCENE` forces one catalog scene as the whole session (`list` prints the
+catalog with indices); story scenes have `day` > 0 and some need a late `HHMM` (their phase range).
 
 `Cargo.toml` denies all rustc and clippy warnings (`[lints]`) and forbids `unsafe`, so any warning
 fails the build. `clippy::pedantic` is deliberately not enabled: many `as` casts intentionally
@@ -49,7 +49,7 @@ Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and
 - **`assets/`** — `resource.rs` parses the Dynamix archive (chunked resources, RLE/LZW, 4 bpp
   BMP/SCR, PAL, TTM split into frames at `0x0FF0`, ADS). `exe.rs` reads the NE executable: the
   `WAVESFXn` sounds (mapped through the RT_NAMETABLE resource) and logic tables at fixed offsets in
-  the data segment (scene catalogue, walk routes/paths, RNG seed table, whitecap sequences). It
+  the data segment (scene catalog, walk routes/paths, RNG seed table, whitecap sequences). It
   validates known strings to reject other builds of the EXE.
 - **`engine/mod.rs` (`Engine`)** — the story driver: session planning (`plan_session`/`pick`),
   calendar/chapter logic, and `step()`, which composes one frame. `tick()` is the separate 16 ms
