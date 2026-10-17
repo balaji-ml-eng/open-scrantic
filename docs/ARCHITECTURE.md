@@ -10,7 +10,7 @@ see [`../AGENTS.md`](../AGENTS.md).
 - **The disassembly is the ground truth.** Behavior is ported from `SCRANTIC.SCR`, not guessed or
   copied from other reimplementations. Code comments cite original addresses (`seg10:1acb`,
   `DS:1756`).
-- **No original data in the binary.** Art, scripts, sounds and every game table are read at runtime
+- **No original data in the binary.** Art, scripts, sounds and every logic table are read at runtime
   from the user's original `SCRANTIC.SCR`, `RESOURCE.MAP` and `RESOURCE.001`. Offsets into the
   executable are validated against known strings, so other builds are rejected.
 - **Original arithmetic.** Wrapping `u16`/`i16` math and the original random number generator
@@ -43,28 +43,28 @@ Three layers, with dependencies pointing downward only:
 
 ## Module map
 
-| Module                | Role                                                                                       | Original      |
-|-----------------------|--------------------------------------------------------------------------------------------|---------------|
-| `assets/mod.rs`       | `GameData::load`: finds the three files (case-insensitive), builds `Archive` + `ExeData`   | —             |
-| `assets/exe.rs`       | NE executable parser: `WAVESFXn` sounds, scene catalog, walk tables, RNG seed, whitecaps | data segment  |
-| `assets/resource.rs`  | Dynamix archive: RLE/LZW, 4 bpp BMP/SCR, PAL, TTM (split into frames), ADS                 | —             |
-| `engine/mod.rs`       | `Engine`: session planning, calendar/chapters, `step()` and `tick()`                       | `seg4`, `seg2`|
-| `engine/ads.rs`       | ADS script VM and the scene scheduler (`AdsRuntime::update`)                               | `seg10`       |
-| `engine/ttm.rs`       | `Scene` records and the frame interpreter `run_frame`                                      | `seg12`       |
-| `engine/island.rs`    | Island placement, background composition, waves, whitecaps, clouds, raft, holidays         | `seg3`        |
-| `engine/walk.rs`      | Johnny walking between the six island spots                                                | `seg4`        |
-| `engine/gfx.rs`       | 640×480 palette-indexed `Canvas` with the GDI-like primitives the original used            | GDI calls     |
-| `engine/rng.rs`       | Additive lagged generator seeded from the executable's table                               | `seg4:1e86`   |
-| `engine/config.rs`    | `SCRANTIC.INI` read/write with the original keys                                           | —             |
-| `audio.rs`            | One-channel sound playback with `sndPlaySound(SND_ASYNC)` semantics (rodio)                | —             |
-| `main.rs`             | Window (winit), presenting (softbuffer), clocks, input, saving settings on exit            | —             |
-| `examples/snapshot.rs`| Headless run with a fixed clock that writes PNGs                                           | —             |
+| Module                 | Role                                                                                            | Original       |
+|------------------------|-------------------------------------------------------------------------------------------------|----------------|
+| `assets/mod.rs`        | `ScreensaverData::load`: finds the three files (case-insensitive), builds `Archive` + `ExeData` | —              |
+| `assets/exe.rs`        | NE executable parser: `WAVESFXn` sounds, scene catalog, walk tables, RNG seed, whitecaps        | data segment   |
+| `assets/resource.rs`   | Dynamix archive: RLE/LZW, 4 bpp BMP/SCR, PAL, TTM (split into frames), ADS                      | —              |
+| `engine/mod.rs`        | `Engine`: session planning, calendar/chapters, `step()` and `tick()`                            | `seg4`, `seg2` |
+| `engine/ads.rs`        | ADS script VM and the scene scheduler (`AdsRuntime::update`)                                    | `seg10`        |
+| `engine/ttm.rs`        | `Scene` records and the frame interpreter `run_frame`                                           | `seg12`        |
+| `engine/island.rs`     | Island placement, background composition, waves, whitecaps, clouds, raft, holidays              | `seg3`         |
+| `engine/walk.rs`       | Johnny walking between the six island spots                                                     | `seg4`         |
+| `engine/gfx.rs`        | 640×480 palette-indexed `Canvas` with the GDI-like primitives the original used                 | GDI calls      |
+| `engine/rng.rs`        | Additive lagged generator seeded from the executable's table                                    | `seg4:1e86`    |
+| `engine/config.rs`     | `SCRANTIC.INI` read/write with the original keys                                                | —              |
+| `audio.rs`             | One-channel sound playback with `sndPlaySound(SND_ASYNC)` semantics (rodio)                     | —              |
+| `main.rs`              | Window (winit), presenting (softbuffer), clocks, input, saving settings on exit                 | —              |
+| `examples/snapshot.rs` | Headless run with a fixed clock that writes PNGs                                                | —              |
 
 ## Startup
 
 1. `main` parses the arguments (`--fullscreen`, `--version`, `--help`) and resolves `app_dir()`,
-   the directory of the executable. Game files and `SCRANTIC.INI` are always read from there.
-2. `GameData::load` reads the three files, rejects the installer placeholder (a tiny
+   the directory of the executable. Screensaver files and `SCRANTIC.INI` are always read from there.
+2. `ScreensaverData::load` reads the three files, rejects the installer placeholder (a tiny
    `RESOURCE.001`) and builds the `Archive` and `ExeData`. `ExeData::parse` fails on an
    unsupported build.
 3. `Config::load` reads `SCRANTIC.INI`; a missing or invalid file is replaced by defaults.

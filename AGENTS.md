@@ -27,7 +27,7 @@ cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
 OPEN_SCRANTIC_DATA=/path/to/install cargo test headless_run_completes_scenes   # single test
 OPEN_SCRANTIC_DEBUG=1 target/release/open-scrantic              # prints each session's plan and scene completions
-cargo run --release --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
+cargo run --release --example snapshot -- INSTALL_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
 ```
 
 The `snapshot` example runs the engine headless with a fixed clock and writes PNGs; it is the way

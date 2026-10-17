@@ -50,12 +50,12 @@
 - Add MIT license ([8a758fe](https://github.com/glauberlima/open-scrantic/commit/8a758fef582f9190b016badc2277867c3f2c88de))
 - Add agent-agnostic AGENTS.md ([9f7b5f3](https://github.com/glauberlima/open-scrantic/commit/9f7b5f3598faf536610696171e7f31aa95fa8d9e))
 - Add logo and tighten README ([f9897a6](https://github.com/glauberlima/open-scrantic/commit/f9897a62a0e29a58ac5fcfa8001e153bf4ecba82))
-- Add SHA-256 checksums of the original game files ([67b8a9d](https://github.com/glauberlima/open-scrantic/commit/67b8a9dfcb481f3407d9e96d28f7035945c02759))
+- Add SHA-256 checksums of the original screensaver files ([67b8a9d](https://github.com/glauberlima/open-scrantic/commit/67b8a9dfcb481f3407d9e96d28f7035945c02759))
 
 
 ### Features
 
 - Reimplement Johnny Castaway engine in Rust ([ab74bc4](https://github.com/glauberlima/open-scrantic/commit/ab74bc47388061ea57f5f580f0d5b352dac73ecd))
 - Add scene forcing to the snapshot example ([e17bcf6](https://github.com/glauberlima/open-scrantic/commit/e17bcf638f3d922626b0ce5984a2dde4e9e0e7a9))
-- Read game files and SCRANTIC.INI from the executable directory ([d0140d1](https://github.com/glauberlima/open-scrantic/commit/d0140d12147fed3bfcae23778c71cb02826031e6))
+- Read screensaver files and SCRANTIC.INI from the executable directory ([d0140d1](https://github.com/glauberlima/open-scrantic/commit/d0140d12147fed3bfcae23778c71cb02826031e6))
 
