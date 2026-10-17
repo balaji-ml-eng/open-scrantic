@@ -1,5 +1,13 @@
 /target
-.DS_Store
+
+# Original screensaver files: never commit
 SCRANTIC.SCR
 RESOURCE.MAP
 RESOURCE.001
+
+# Created next to the executable on the first run
+SCRANTIC.INI
+
+# Local tooling
+.DS_Store
+.claude/

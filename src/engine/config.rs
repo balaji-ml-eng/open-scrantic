@@ -110,7 +110,8 @@ impl Config {
         };
         let b = |v: bool| i32::from(v);
         let text = format!(
-            "{SECTION}\nBackground={}\nClouds={}\nWaves={}\nSounds={}\nNumDays={}\nIntroduction={}\nCurrentYear={}\nCurrentMonth={}\nCurrentDay={}\nStartTime={}\n",
+            "{SECTION}\nBackground={}\nClouds={}\nWaves={}\nSounds={}\nNumDays={}\n\
+             Introduction={}\nCurrentYear={}\nCurrentMonth={}\nCurrentDay={}\nStartTime={}\n",
             b(self.background),
             b(self.clouds),
             b(self.waves),
