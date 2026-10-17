@@ -29,6 +29,8 @@ pub const STEP_MS: u64 = 55;
 const STORY_CHIME: u32 = 25;
 const IDLE_ADS: u8 = 0xFF;
 const PLAN_BUDGET: i32 = 300;
+/// Bound on the draws for a final scene; the original has none and can hang (see `plan_session`).
+const MAX_FINAL_PICKS: u32 = 1000;
 
 /// Everything a TTM frame may touch.
 pub struct Env<'a> {
@@ -238,12 +240,12 @@ impl Engine {
         None
     }
 
-    /// Debug aid (not in the original): number of entries in the scene catalogue.
+    /// Debug aid (not in the original): number of entries in the scene catalog.
     pub fn scene_count(&self) -> usize {
         self.data.exe.scenes.len()
     }
 
-    /// Debug aid: one-line description of catalogue scene `i` (`ADS:tag`, story day, flags, duration).
+    /// Debug aid: one-line description of catalog scene `i` (`ADS:tag`, story day, flags, duration).
     pub fn scene_label(&self, i: usize) -> String {
         let s = &self.data.exe.scenes[i];
         let ads = self.data.exe.ads_names.get(&s.ads_id).map_or("idle", String::as_str);
@@ -253,7 +255,7 @@ impl Engine {
         )
     }
 
-    /// Debug aid: the next planned session is just catalogue scene `i`.
+    /// Debug aid: the next planned session is just catalog scene `i`.
     pub fn force_scene(&mut self, i: usize) {
         self.forced_scene = Some(i);
     }
@@ -281,6 +283,7 @@ impl Engine {
             }
             self.story_scene = Some(s);
         }
+        let mut attempts = 0;
         let fin = loop {
             if let Some(f) = fin
                 && Some(f) != self.last_final
@@ -288,9 +291,15 @@ impl Engine {
             {
                 break f;
             }
-            fin = self.pick(4, phase, budget);
+            attempts += 1;
+            fin = if attempts < MAX_FINAL_PICKS {
+                self.pick(4, phase, budget)
+            } else {
+                None
+            };
             if fin.is_none() {
-                // Nothing fits the constraints: the original would spin; accept any final scene.
+                // Nothing fits the constraints (or only the previous final does): the original would
+                // spin forever; accept any final scene.
                 fin = (0..self.data.exe.scenes.len()).find(|&i| flags(self, i) & 4 != 0);
                 break fin.unwrap_or(0);
             }

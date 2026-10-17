@@ -216,7 +216,7 @@ impl Island {
         (self.x + r.0, self.y + r.1, r.2, r.3)
     }
 
-    /// seg3:1b00 – choose the island position honouring the accumulated constraints.
+    /// seg3:1b00 – choose the island position honoring the accumulated constraints.
     fn place(&mut self, rng: &mut Rng) {
         if self.cfg == -1 {
             self.cfg = 0;
@@ -571,8 +571,8 @@ impl Island {
                 match self.cap_seqs[3 - c.kind].get(c.frame) {
                     Some(&s) => sprite = Some(s as usize),
                     None => {
+                        self.cap_quota[c.kind] += 1;
                         c = Slot::default();
-                        self.cap_quota[self.caps[i].kind] += 1;
                     }
                 }
             }

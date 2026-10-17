@@ -85,12 +85,38 @@ impl Canvas {
 
     pub fn copy_rect_from(&mut self, src: &Canvas, x: i32, y: i32, w: i32, h: i32) {
         let c = Clip::rect(x, y, w, h).bounded();
+        if c.x1 > c.x2 {
+            return;
+        }
         for yy in c.y1..=c.y2 {
             let a = (yy * WIDTH + c.x1) as usize;
             let b = (yy * WIDTH + c.x2 + 1) as usize;
-            if a < b {
-                self.px[a..b].copy_from_slice(&src.px[a..b]);
+            self.px[a..b].copy_from_slice(&src.px[a..b]);
+        }
+    }
+
+    /// Copies the pixels of `r` (clipped to the canvas) out, row by row.
+    pub fn save_rect(&self, r: Clip) -> Vec<u8> {
+        let c = r.bounded();
+        let mut out = Vec::new();
+        if c.x1 <= c.x2 {
+            for y in c.y1..=c.y2 {
+                out.extend_from_slice(&self.px[(y * WIDTH + c.x1) as usize..=(y * WIDTH + c.x2) as usize]);
             }
+        }
+        out
+    }
+
+    /// Puts back what `save_rect` took for the same `r`.
+    pub fn restore_rect(&mut self, r: Clip, saved: &[u8]) {
+        let c = r.bounded();
+        if c.x1 > c.x2 {
+            return;
+        }
+        let w = (c.x2 - c.x1 + 1) as usize;
+        for (row, y) in saved.chunks_exact(w).zip(c.y1..=c.y2) {
+            let a = (y * WIDTH + c.x1) as usize;
+            self.px[a..a + w].copy_from_slice(row);
         }
     }
 
@@ -178,5 +204,33 @@ impl Canvas {
                 self.put(px, py, if edge { fg } else { bg }, clip);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copy_rect_outside_the_canvas_is_a_no_op() {
+        let src = Canvas {
+            px: vec![7; (WIDTH * HEIGHT) as usize],
+        };
+        let mut dst = Canvas::default();
+        for (x, y) in [(-10, 0), (-10, 5), (WIDTH + 3, 0), (0, HEIGHT + 3), (0, -10)] {
+            dst.copy_rect_from(&src, x, y, 5, 5);
+        }
+        assert!(dst.px.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn copy_rect_is_clipped_to_the_canvas() {
+        let src = Canvas {
+            px: vec![7; (WIDTH * HEIGHT) as usize],
+        };
+        let mut dst = Canvas::default();
+        dst.copy_rect_from(&src, -2, -2, 5, 5);
+        assert_eq!(dst.px.iter().filter(|&&p| p == 7).count(), 9);
+        assert_eq!(dst.px[0], 7);
     }
 }

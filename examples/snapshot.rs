@@ -62,16 +62,38 @@ fn png(path: &Path, w: usize, h: usize, rgb: &[u8]) {
     fs::write(path, out).unwrap();
 }
 
+fn fail(msg: &str) -> ! {
+    eprintln!("error: {msg}");
+    std::process::exit(2);
+}
+
+/// Optional positional argument `i`: `default` when absent, an error when present but invalid.
+fn arg<T: std::str::FromStr>(a: &[String], i: usize, name: &str, default: T) -> T {
+    match a.get(i) {
+        None => default,
+        Some(v) => v.parse().unwrap_or_else(|_| fail(&format!("invalid {name}: {v}"))),
+    }
+}
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let dir = Path::new(a.get(1).expect("GAME_DIR"));
-    let out = Path::new(a.get(2).expect("OUT_DIR"));
-    let steps: u64 = a.get(3).and_then(|v| v.parse().ok()).unwrap_or(400);
-    let every: u64 = a.get(4).and_then(|v| v.parse().ok()).unwrap_or(50);
-    let hhmm: i32 = a.get(5).and_then(|v| v.parse().ok()).unwrap_or(1000);
-    let seed: u64 = a.get(6).and_then(|v| v.parse().ok()).unwrap_or(12345);
+    let dir = Path::new(a.get(1).unwrap_or_else(|| fail("missing GAME_DIR")));
+    let out = Path::new(a.get(2).unwrap_or_else(|| fail("missing OUT_DIR")));
+    let steps: u64 = arg(&a, 3, "STEPS", 400);
+    let every: u64 = arg(&a, 4, "EVERY", 50);
+    let hhmm: i32 = arg(&a, 5, "HHMM", 1000);
+    let seed: u64 = arg(&a, 6, "SEED", 12345);
+    let story_day: i32 = arg(&a, 7, "STORY_DAY", 0);
+    if every == 0 {
+        fail("EVERY must be at least 1");
+    }
+    if !(0..2400).contains(&hhmm) || hhmm % 100 >= 60 {
+        fail("HHMM must be a time between 0000 and 2359");
+    }
+    if !(0..=11).contains(&story_day) {
+        fail("STORY_DAY must be between 0 and 11");
+    }
     fs::create_dir_all(out).unwrap();
-    let story_day: i32 = a.get(7).and_then(|v| v.parse().ok()).unwrap_or(0);
     let clock = Clock {
         year: 1993,
         month: 6,
@@ -92,7 +114,13 @@ fn main() {
             }
             return;
         }
-        Some(v) => engine.force_scene(v.parse().expect("SCENE index")),
+        Some(v) => {
+            let i: usize = v.parse().unwrap_or_else(|_| fail(&format!("invalid SCENE: {v}")));
+            if i >= engine.scene_count() {
+                fail(&format!("SCENE must be below {}", engine.scene_count()));
+            }
+            engine.force_scene(i);
+        }
         None => {}
     }
     let mut ticks = 0u64;

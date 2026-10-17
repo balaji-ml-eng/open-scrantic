@@ -60,6 +60,8 @@ struct App {
     steps: u64,
     ticks: u64,
     fullscreen: bool,
+    /// The title screen has been requested once; until the first step it needs no further redraws.
+    intro_drawn: bool,
 }
 
 impl App {
@@ -192,9 +194,11 @@ impl ApplicationHandler for App {
         if self.window.is_none() {
             return;
         }
-        if (self.advance() || self.steps == 0)
+        let stepped = self.advance();
+        if (stepped || !self.intro_drawn)
             && let Some(w) = &self.window
         {
+            self.intro_drawn = true;
             w.request_redraw();
         }
         let next = self.start + Duration::from_millis((self.steps + 1) * STEP_MS);
@@ -252,6 +256,7 @@ fn main() {
         steps: 0,
         ticks: 0,
         fullscreen,
+        intro_drawn: false,
     };
     if let Err(e) = event_loop.run_app(&mut app) {
         eprintln!("error: {e}");
