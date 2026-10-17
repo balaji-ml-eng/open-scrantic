@@ -43,50 +43,66 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn path() -> Option<PathBuf> {
-        dirs::config_dir().map(|d| d.join("open-scrantic").join("SCRANTIC.INI"))
+    /// `SCRANTIC.INI` lives next to the executable; the location cannot be customized.
+    pub fn path() -> PathBuf {
+        crate::app_dir().join("SCRANTIC.INI")
     }
 
+    /// Loads the INI. A missing file, or one with any invalid value, is replaced by a new file
+    /// holding the defaults (story progress included), and the run continues with those.
     pub fn load() -> Self {
+        let path = Self::path();
+        let parsed = fs::read_to_string(&path).ok().and_then(|text| Self::parse(&text));
+        parsed.unwrap_or_else(|| {
+            let cfg = Self::default();
+            if let Err(e) = cfg.save() {
+                eprintln!("warning: cannot write {}: {e}", path.display());
+            }
+            cfg
+        })
+    }
+
+    /// Strict parser: `None` if any known key in the section has a value that is not an integer
+    /// in its valid range, or if a line in the section is not `key=value`. Unknown keys and
+    /// keys of other sections are ignored; missing keys keep their defaults.
+    fn parse(text: &str) -> Option<Self> {
         let mut cfg = Self::default();
-        let Some(text) = Self::path().and_then(|p| fs::read_to_string(p).ok()) else {
-            return cfg;
-        };
         let mut in_section = false;
-        for line in text.lines().map(str::trim) {
+        for line in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
             if line.starts_with('[') {
                 in_section = line.eq_ignore_ascii_case(SECTION);
                 continue;
             }
-            let Some((key, value)) = line.split_once('=') else {
-                continue;
-            };
             if !in_section {
                 continue;
             }
-            let Ok(v) = value.trim().parse::<i32>() else { continue };
+            let (key, value) = line.split_once('=')?;
+            let v = value.trim().parse::<i32>().ok();
+            let flag = |v: Option<i32>| match v? {
+                0 => Some(false),
+                1 => Some(true),
+                _ => None,
+            };
+            let range = |v: Option<i32>, hi: i32| v.filter(|n| (0..=hi).contains(n));
             match key.trim().to_ascii_lowercase().as_str() {
-                "background" => cfg.background = v != 0,
-                "clouds" => cfg.clouds = v != 0,
-                "waves" => cfg.waves = v != 0,
-                "sounds" => cfg.sounds = v != 0,
-                "numdays" => cfg.num_days = v,
-                "introduction" => cfg.intro = v,
-                "currentyear" => cfg.year = v,
-                "currentmonth" => cfg.month = v,
-                "currentday" => cfg.day = v,
-                "starttime" => cfg.start_time = v,
+                "background" => cfg.background = flag(v)?,
+                "clouds" => cfg.clouds = flag(v)?,
+                "waves" => cfg.waves = flag(v)?,
+                "sounds" => cfg.sounds = flag(v)?,
+                "numdays" => cfg.num_days = range(v, 11)?,
+                "introduction" => cfg.intro = range(v, 12)?,
+                "currentyear" => cfg.year = range(v, 9999)?,
+                "currentmonth" => cfg.month = range(v, 12)?,
+                "currentday" => cfg.day = range(v, 31)?,
+                "starttime" => cfg.start_time = range(v, 2359).filter(|n| n % 100 < 60)?,
                 _ => {}
             }
         }
-        cfg
+        Some(cfg)
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        let Some(path) = Self::path() else { return Ok(()) };
-        if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
-        }
+        let path = Self::path();
         let intro = if self.intro_saved != 0 {
             self.intro_saved
         } else {
@@ -107,5 +123,41 @@ impl Config {
             self.start_time
         );
         fs::write(path, text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_round_trip() {
+        let text = format!("{SECTION}\nBackground=1\nClouds=0\nStartTime=2359\nNumDays=11\nIntroduction=12\n");
+        let cfg = Config::parse(&text).unwrap();
+        assert!(cfg.background && !cfg.clouds);
+        assert_eq!((cfg.start_time, cfg.num_days, cfg.intro), (2359, 11, 12));
+    }
+
+    #[test]
+    fn invalid_values_are_rejected() {
+        for bad in [
+            "Sounds=2",
+            "Sounds=abc",
+            "Sounds=",
+            "NumDays=12",
+            "Introduction=-1",
+            "StartTime=960",
+            "StartTime=2400",
+            "CurrentMonth=13",
+            "garbage",
+        ] {
+            assert!(Config::parse(&format!("{SECTION}\n{bad}\n")).is_none(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn unknown_keys_and_other_sections_are_ignored() {
+        let cfg = Config::parse(&format!("[Other]\nSounds=9\n{SECTION}\nFoo=bar\nSounds=0\n")).unwrap();
+        assert!(!cfg.sounds);
     }
 }

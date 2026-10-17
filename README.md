@@ -22,15 +22,21 @@ from your **original installed files**. No game data is shipped here.
 ## Quick start
 
 ```sh
-cargo run --release -- /path/to/install
+cargo build --release
+cp /path/to/install/{SCRANTIC.SCR,RESOURCE.MAP,RESOURCE.001} target/release/   # see Requirements
+target/release/open-scrantic
 ```
 
-Replace `/path/to/install` with the directory holding the original files (see
-[Requirements](#requirements)); it defaults to the current directory.
+The game files and `SCRANTIC.INI` are always read from the directory of the executable, so keep
+them side by side. It opens in a resizable window and scales to its size; **Esc** exits.
 
-There are no command-line options. It always runs fullscreen, like the original screensaver: any
-key, mouse click or mouse movement exits. Sound and visual options live in `SCRANTIC.INI` (see
-[Configuration](#configuration)).
+| Option         | Effect                                |
+|----------------|---------------------------------------|
+| `--fullscreen` | start fullscreen instead of windowed  |
+| `-V, --version`| print the version and exit            |
+| `-h, --help`   | print the usage and exit              |
+
+Sound and visual options live in `SCRANTIC.INI` (see [Configuration](#configuration)).
 
 ## How it works
 
@@ -65,12 +71,13 @@ Check your copy with `shasum -a 256 SCRANTIC.SCR RESOURCE.MAP RESOURCE.001` (`sh
 ## Configuration
 
 Options and story progress are stored in `SCRANTIC.INI`, section `[ScreenSaver.ScreenAntics]`, using
-the same keys as the original. Location: the user configuration directory
-(`~/Library/Application Support/open-scrantic/` on macOS, `~/.config/open-scrantic/` on Linux,
-`%APPDATA%\open-scrantic\` on Windows). The file is rewritten on clean exit only, so edit it while
-the program is closed. Keys are case-insensitive; unknown keys and non-numeric values are ignored.
+the same keys as the original. The file always sits next to the executable (the location cannot be
+changed). If it is missing it is created with the defaults. If any value is invalid (not an
+integer, or out of range) the whole file is replaced by the defaults, story progress included.
+The file is rewritten on clean exit only, so edit it while the program is closed. Keys are
+case-insensitive; unknown keys are ignored.
 
-**Options** (`0` = off, any other value = on; default `1`):
+**Options** (`0` = off, `1` = on; default `1`):
 
 | Key          | Effect when off                                                         |
 |--------------|-------------------------------------------------------------------------|
@@ -106,7 +113,7 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 ```sh
 OPEN_SCRANTIC_DATA=/path/to/install cargo test                  # tests against the real data
-OPEN_SCRANTIC_DEBUG=1 cargo run --release -- /path/to/install    # prints each session's plan
+OPEN_SCRANTIC_DEBUG=1 target/release/open-scrantic              # prints each session's plan
 cargo run --release --example snapshot -- /path/to/install /tmp/out 2000 100 1000 42   # headless PNG render
 ```
 

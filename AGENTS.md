@@ -21,12 +21,12 @@ Toolchain is pinned to Rust 1.99.1 (`rust-toolchain.toml`), edition 2024.
 
 ```sh
 cargo build --release                                   # optimized binary: target/release/open-scrantic
-cargo run --release -- /path/to/install                 # fullscreen; any input exits (no options)
+cp SCRANTIC.SCR RESOURCE.MAP RESOURCE.001 target/release/ && target/release/open-scrantic [--fullscreen]   # game files + SCRANTIC.INI live next to the binary; Esc exits
 cargo clippy --all-targets                              # must stay at zero warnings
 cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
 OPEN_SCRANTIC_DATA=/path/to/install cargo test headless_run_completes_scenes   # single test
-OPEN_SCRANTIC_DEBUG=1 cargo run --release -- /path/to/install   # prints each session's plan and scene completions
+OPEN_SCRANTIC_DEBUG=1 target/release/open-scrantic              # prints each session's plan and scene completions
 cargo run --release --example snapshot -- GAME_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
 ```
 
@@ -72,8 +72,8 @@ Key cross-cutting model:
   snapshot example drive them deterministically with the same formula.
 - **Coordinates**: TTM drawing gets the island offset from `Island::ttm_offset` (origin x + 1, plus
   272 px for scenes with flag `0x400`); walk frames use the raw island origin.
-- **Persistence**: `engine/config.rs` reads/writes `SCRANTIC.INI` with the original keys in the
-  user config dir; saved on clean exit only.
+- **Persistence**: `engine/config.rs` reads/writes `SCRANTIC.INI` with the original keys next to the
+  executable (`app_dir()`); a missing or invalid file is recreated with defaults; saved on clean exit only.
 
 ## Conventions
 

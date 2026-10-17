@@ -2,14 +2,14 @@
 //! Runs on the original, installed game files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001).
 
 use std::num::NonZeroU32;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalPosition;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 use open_scrantic::engine::config::Config;
@@ -21,24 +21,34 @@ use open_scrantic::{assets, audio};
 const INTRO_HOLD: Duration = Duration::from_secs(2);
 
 const USAGE: &str = "\
-Usage: open-scrantic [GAME_DIR]
+Usage: open-scrantic [--fullscreen]
 
-GAME_DIR is the installed game directory containing SCRANTIC.SCR, RESOURCE.MAP and
-RESOURCE.001 (default: current directory).
+Options:
+  --fullscreen    start fullscreen instead of in a window
+  -V, --version   print the version and exit
+  -h, --help      print this help and exit
 
-Runs fullscreen as a screensaver: any key, mouse click or mouse movement exits.";
+The original game files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001) and SCRANTIC.INI are read
+from the directory of this executable. Esc exits.";
 
-fn parse_args() -> Result<PathBuf, String> {
-    let mut args = std::env::args().skip(1);
-    let dir = match args.next() {
-        None => PathBuf::from("."),
-        Some(a) if a.starts_with('-') => return Err(format!("unknown option {a}\n\n{USAGE}")),
-        Some(a) => PathBuf::from(a),
-    };
-    if args.next().is_some() {
-        return Err(format!("too many arguments\n\n{USAGE}"));
+/// Parses the command line; `Ok(None)` means a message was printed and the program should exit.
+fn parse_args() -> Result<Option<bool>, String> {
+    let mut fullscreen = false;
+    for a in std::env::args().skip(1) {
+        match a.as_str() {
+            "--fullscreen" => fullscreen = true,
+            "-V" | "--version" => {
+                println!("open-scrantic {}", env!("CARGO_PKG_VERSION"));
+                return Ok(None);
+            }
+            "-h" | "--help" => {
+                println!("{USAGE}");
+                return Ok(None);
+            }
+            _ => return Err(format!("unknown argument {a}\n\n{USAGE}")),
+        }
     }
-    Ok(dir)
+    Ok(Some(fullscreen))
 }
 
 struct App {
@@ -49,7 +59,7 @@ struct App {
     start: Instant,
     steps: u64,
     ticks: u64,
-    first_cursor: Option<PhysicalPosition<f64>>,
+    fullscreen: bool,
 }
 
 impl App {
@@ -124,9 +134,24 @@ impl ApplicationHandler for App {
         if self.window.is_some() {
             return;
         }
-        let attrs = Window::default_attributes()
+        let mut attrs = Window::default_attributes()
             .with_title("Johnny Castaway")
-            .with_fullscreen(Some(Fullscreen::Borderless(None)));
+            .with_min_inner_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32));
+        if self.fullscreen {
+            attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
+        } else {
+            // Largest whole multiple of the original 640x480 that fills at most 80% of the screen.
+            let k = event_loop
+                .primary_monitor()
+                .or_else(|| event_loop.available_monitors().next())
+                .map_or(1, |m| {
+                    let s = m.size();
+                    (s.width * 4 / 5 / WIDTH as u32)
+                        .min(s.height * 4 / 5 / HEIGHT as u32)
+                        .max(1)
+                });
+            attrs = attrs.with_inner_size(PhysicalSize::new(WIDTH as u32 * k, HEIGHT as u32 * k));
+        }
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Rc::new(w),
             Err(e) => {
@@ -135,7 +160,7 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        window.set_cursor_visible(false);
+        window.set_cursor_visible(!self.fullscreen);
         let surface = softbuffer::Context::new(Rc::clone(&window))
             .and_then(|ctx| softbuffer::Surface::new(&ctx, Rc::clone(&window)));
         match surface {
@@ -154,18 +179,10 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => self.redraw(),
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) =>
+            {
                 event_loop.exit();
-            }
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                ..
-            } => event_loop.exit(),
-            WindowEvent::CursorMoved { position, .. } => {
-                let first = *self.first_cursor.get_or_insert(position);
-                if (position.x - first.x).abs() + (position.y - first.y).abs() > 8.0 {
-                    event_loop.exit();
-                }
             }
             _ => {}
         }
@@ -192,14 +209,15 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
-    let dir = match parse_args() {
-        Ok(d) => d,
+    let fullscreen = match parse_args() {
+        Ok(Some(f)) => f,
+        Ok(None) => return,
         Err(msg) => {
             eprintln!("{msg}");
             std::process::exit(2);
         }
     };
-    let data = match assets::GameData::load(&dir) {
+    let data = match assets::GameData::load(&open_scrantic::app_dir()) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: {e}");
@@ -233,7 +251,7 @@ fn main() {
         start: Instant::now(),
         steps: 0,
         ticks: 0,
-        first_cursor: None,
+        fullscreen,
     };
     if let Err(e) = event_loop.run_app(&mut app) {
         eprintln!("error: {e}");
