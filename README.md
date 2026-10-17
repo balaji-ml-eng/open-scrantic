@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="360">
-
 # Open Scrantic
 
 ### Johnny Castaway, the classic 1993 screensaver, running natively on Windows, macOS and Linux.
+
+<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="360">
 
 [![CI](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml/badge.svg)](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/glauberlima/open-scrantic)](https://github.com/glauberlima/open-scrantic/releases/latest)
@@ -60,8 +60,6 @@ one folder next to the program:
 | `SCRANTIC.SCR` | 295,952   | the original screensaver program     |
 | `RESOURCE.MAP` | 1,461     | index of the screensaver's resources |
 | `RESOURCE.001` | 1,175,645 | the images and animation scripts     |
-
-Only this exact build of the screensaver is supported.
 
 <details>
 <summary>Check that your files are the right ones</summary>
@@ -124,16 +122,11 @@ No. The loader checks known strings in `SCRANTIC.SCR` and rejects other builds o
 **Where is my progress saved?**
 In `SCRANTIC.INI` (see [Settings](#settings)).
 
-**How faithful is it?**
-Engine behavior follows the disassembly of the original. The settings dialog is not reimplemented,
-and a few intentional differences are listed in [`docs/ENGINE.md`](docs/ENGINE.md).
-
 ## About the project
 
 Open Scrantic is a reverse-engineered, behavior-faithful reimplementation of *Screen Antics: Johnny
 Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
-screensaver. The program contains **only the logic**; art, scripts, sounds and logic tables are read
-from your original files at runtime.
+screensaver. The program contains only the engine logic.
 
 ```text
 SCRANTIC.SCR ──► assets::exe       ──► sounds, scene catalogue, walk routes, RNG seed
@@ -148,7 +141,8 @@ RESOURCE.001 ─┴► assets::resource  ──► images, palette, TTM/ADS scri
 The disassembly is the ground truth for behavior, including the original 16-bit arithmetic and random
 number generator. Recovered formats, VM semantics, story rules, timing and the deliberate deviations
 (for example, full-frame redraw instead of dirty rectangles) are recorded in
-[`docs/ENGINE.md`](docs/ENGINE.md).
+[`docs/ENGINE.md`](docs/ENGINE.md). The original settings dialog is not reimplemented; options live
+in [`SCRANTIC.INI`](#settings).
 
 ## For developers
 
@@ -181,7 +175,6 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 ### Development
 
 ```sh
-OPEN_SCRANTIC_DATA=/path/to/install cargo test                  # tests against the real data
 OPEN_SCRANTIC_DEBUG=1 target/release/open-scrantic              # prints each session's plan
 cargo run --release --example snapshot -- /path/to/install /tmp/out 2000 100 1000 42   # headless PNG render
 ```
@@ -224,7 +217,7 @@ deserves a release (`feat`, `fix`, `perf`, `refactor`, `docs`), nothing is publi
 
 Generative AI was used throughout the development of Open Scrantic. The project was built with
 [Claude Code](https://claude.com/claude-code) (Anthropic) together with
-[REA: Reverse Engineer Anything](https://github.com/morluto/rea), a reverse-engineering toolkit
+[REA: Reverse Engineer Anything](https://rea.tools/), a reverse-engineering toolkit
 exposed to the model. Together they were used to disassemble and decompile the original
 `SCRANTIC.SCR`, recover the resource formats and script semantics, and write the Rust code, tests and
 documentation. The developer directed the work and reviewed and integrated the AI-assisted results,
@@ -236,13 +229,13 @@ checking the behavior against the original screensaver.
 Dynamix). This is an independent, non-commercial interoperability project, not affiliated with or
 endorsed by them. It does not include or distribute any original screensaver data.
 
-## Credits
-
-The original `SCRANTIC.SCR` was disassembled and decompiled with
-[REA: Reverse Engineer Anything](https://github.com/morluto/rea); the findings are in
-[`docs/ENGINE.md`](docs/ENGINE.md).
-
 ## License
 
-Source code under the [MIT License](LICENSE). The original screensaver and its data remain the property of
-their owners (see the [legal notice](#legal-notice)).
+Source code under the [MIT License](LICENSE).
+
+<div align="center">
+
+Made in Campinas, Brazil with ❤️, [Claude Code](https://claude.com/claude-code) and
+[REA](https://rea.tools/)
+
+</div>
