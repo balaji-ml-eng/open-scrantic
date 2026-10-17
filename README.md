@@ -19,8 +19,8 @@ back to modern computers: a free, open-source Rust reimplementation of the class
 screensaver. Watch Johnny go about his days on his tiny island while a story unfolds from
 one day to the next, with the same behavior as the original.
 
-[Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [For developers](#for-developers) ·
-[AI disclosure](#ai-disclosure) · [Legal](#legal-notice)
+[Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [Why](#why-this-exists) ·
+[For developers](#for-developers) · [AI disclosure](#ai-disclosure) · [Legal](#legal-notice)
 
 > [!IMPORTANT]
 > You need your own copy of the original screensaver files. This project does not include them
@@ -127,6 +127,12 @@ No. The loader checks known strings in `SCRANTIC.SCR` and rejects other builds o
 
 **Where is my progress saved?**
 In `SCRANTIC.INI` (see [Settings](#settings)).
+
+## Why this exists
+
+Because it's cool, and because it's nostalgic. Johnny Castaway takes me back to my childhood, to
+simpler times, and I wanted it to keep running on the computers we use today, for me and for anyone
+else who remembers it.
 
 ## About the project
 
