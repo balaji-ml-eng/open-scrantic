@@ -6,15 +6,18 @@
 
 <img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="360">
 
-[![CI](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml/badge.svg)](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/glauberlima/open-scrantic)](https://github.com/glauberlima/open-scrantic/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/glauberlima/open-scrantic)](LICENSE)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue)
+[![CI](https://img.shields.io/github/actions/workflow/status/glauberlima/open-scrantic/ci.yml?branch=main&style=flat-square&label=ci)](https://github.com/glauberlima/open-scrantic/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/glauberlima/open-scrantic?style=flat-square)](https://github.com/glauberlima/open-scrantic/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/glauberlima/open-scrantic?style=flat-square)](LICENSE)
+
+</div>
+
+Open Scrantic brings the original *Screen Antics: Johnny Castaway* screensaver (Sierra/Dynamix, 1993)
+back to modern computers. Watch Johnny go about his days on his tiny island while a story unfolds from
+one day to the next, with the same behavior as the original.
 
 [Get started](#get-started) · [Settings](#settings) · [FAQ](#faq) · [For developers](#for-developers) ·
 [AI disclosure](#ai-disclosure) · [Legal](#legal-notice)
-
-</div>
 
 > [!IMPORTANT]
 > You need your own copy of the original screensaver files. This project does not include them
