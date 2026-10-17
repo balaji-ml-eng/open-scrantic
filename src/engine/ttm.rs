@@ -11,7 +11,7 @@ use crate::assets::resource::{Bmp, Op, Ttm};
 pub struct TtmCtx {
     pub ttm: Ttm,
     bmps: [Option<Rc<Bmp>>; 6],
-    saved_zone: Option<(Clip, Canvas)>,
+    saved_zone: Option<(Clip, Vec<u8>)>,
 }
 
 impl TtmCtx {
@@ -137,11 +137,22 @@ fn clip_of(scene: &Scene) -> Clip {
     if scene.clip_on { scene.clip } else { Clip::FULL }
 }
 
-fn buffer<'b>(env: &'b mut Env<'_>, index: i32) -> &'b mut Canvas {
-    match index {
-        0 => env.front,
-        2 => env.bg,
-        _ => env.work,
+/// Source and destination for a copy between two buffers; `None` when they are the same buffer
+/// (the copy would change nothing).
+fn buffer_pair<'b>(env: &'b mut Env<'_>, src: i32, dst: i32) -> Option<(&'b Canvas, &'b mut Canvas)> {
+    let slot = |i: i32| match i {
+        0 => 0,
+        2 => 1,
+        _ => 2,
+    };
+    match (slot(src), slot(dst)) {
+        (0, 1) => Some((&*env.front, &mut *env.bg)),
+        (0, 2) => Some((&*env.front, &mut *env.work)),
+        (1, 0) => Some((&*env.bg, &mut *env.front)),
+        (1, 2) => Some((&*env.bg, &mut *env.work)),
+        (2, 0) => Some((&*env.work, &mut *env.front)),
+        (2, 1) => Some((&*env.work, &mut *env.bg)),
+        _ => None,
     }
 }
 
@@ -149,7 +160,6 @@ fn buffer<'b>(env: &'b mut Env<'_>, index: i32) -> &'b mut Canvas {
 pub fn run_frame(ctx: &mut TtmCtx, scene: &mut Scene, env: &mut Env<'_>) -> Option<FrameResult> {
     let frame = usize::try_from(scene.cur).ok()?;
     let ops: &[Op] = ctx.ttm.frames.get(frame)?;
-    let ops = ops.to_vec();
     let skip = scene.redraw;
     let mut res = FrameResult {
         delay: None,
@@ -158,7 +168,7 @@ pub fn run_frame(ctx: &mut TtmCtx, scene: &mut Scene, env: &mut Env<'_>) -> Opti
     };
     let (ox, oy) = env.offset;
 
-    for op in &ops {
+    for op in ops {
         let mut a = [op.arg(0), op.arg(1), op.arg(2), op.arg(3), op.arg(4), op.arg(5)];
         // Island offset (globals 0x46E6/0x46E4) for drawing, clip and copy-zone opcodes.
         if (0xA000..=0xAFFF).contains(&op.code) || op.code == 0x4004 || op.code == 0x4204 {
@@ -212,10 +222,10 @@ pub fn run_frame(ctx: &mut TtmCtx, scene: &mut Scene, env: &mut Env<'_>) -> Opti
                     continue;
                 }
                 if op.code == 0xA054 {
-                    ctx.saved_zone = Some((Clip::rect(a[0], a[1], w, h), env.bg.clone()));
-                } else if let Some((r, saved)) = &ctx.saved_zone {
-                    env.work
-                        .copy_rect_from(saved, r.x1, r.y1, r.x2 - r.x1 + 1, r.y2 - r.y1 + 1);
+                    let zone = Clip::rect(a[0], a[1], w, h);
+                    ctx.saved_zone = Some((zone, env.bg.save_rect(zone)));
+                } else if let Some((zone, saved)) = &ctx.saved_zone {
+                    env.work.restore_rect(*zone, saved);
                 }
             }
             // State
@@ -249,9 +259,8 @@ pub fn run_frame(ctx: &mut TtmCtx, scene: &mut Scene, env: &mut Env<'_>) -> Opti
                 }
             }
             0xB606 => {
-                if !skip {
-                    let src = buffer(env, a[4]).clone();
-                    buffer(env, a[5]).copy_rect_from(&src, a[0], a[1], a[2], a[3]);
+                if !skip && let Some((src, dst)) = buffer_pair(env, a[4], a[5]) {
+                    dst.copy_rect_from(src, a[0], a[1], a[2], a[3]);
                 }
             }
             0x0080 => {
