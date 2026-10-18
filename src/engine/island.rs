@@ -27,8 +27,26 @@ struct Slot {
 }
 
 impl Slot {
+    fn new(x: i32, y: i32, kind: usize, interval: i32, counter: i32) -> Slot {
+        Slot {
+            x,
+            y,
+            frame: 0,
+            kind,
+            interval,
+            counter,
+        }
+    }
+
     fn empty(&self) -> bool {
         self.x == 0 && self.y == 0
+    }
+
+    /// Post-decrements the counter; true when it was already zero.
+    fn tick(&mut self) -> bool {
+        let expired = self.counter == 0;
+        self.counter -= 1;
+        expired
     }
 }
 
@@ -332,6 +350,10 @@ impl Island {
         if self.tide == 1 { &LOW_WAVES } else { &HIGH_WAVES }
     }
 
+    fn wave_rect(&self, w: (i32, i32, i32, i32, usize, usize)) -> (i32, i32, i32, i32) {
+        self.rect((w.0, w.1, w.2, w.3))
+    }
+
     fn draw_wave(&self, c: &mut Canvas, spot: (i32, i32, i32, i32, usize, usize), clip: Clip) {
         let (x, y, _, _, first, counter) = spot;
         self.sprite(c, first + self.waves[counter] as usize, x, y, 0, clip);
@@ -391,20 +413,20 @@ impl Island {
             if self.tide == 1 {
                 part(c, 2, ROCK);
                 let d = LOW_WAVES[3];
-                if overlap(bottom, self.rect((d.0, d.1, d.2, d.3))) != 0 {
+                if overlap(bottom, self.wave_rect(d)) != 0 {
                     self.draw_wave(c, d, clip);
                 }
                 part(c, 0, ISLAND);
                 part(c, 1, LOW_SHORE);
                 for &w in &LOW_WAVES[..3] {
-                    if overlap(bottom, self.rect((w.0, w.1, w.2, w.3))) != 0 {
+                    if overlap(bottom, self.wave_rect(w)) != 0 {
                         self.draw_wave(c, w, clip);
                     }
                 }
             } else {
                 part(c, 0, ISLAND);
                 for &w in &HIGH_WAVES {
-                    if overlap(bottom, self.rect((w.0, w.1, w.2, w.3))) != 0 {
+                    if overlap(bottom, self.wave_rect(w)) != 0 {
                         self.draw_wave(c, w, clip);
                     }
                 }
@@ -444,14 +466,7 @@ impl Island {
             quota[k] -= 1;
             let (x, y) = rand_pos(rng, Some(size(&self.background, k)), 0, 1, WIDTH, 0x8B);
             let interval = rng.below(5) as i32 + 6;
-            *c = Slot {
-                x,
-                y,
-                frame: 0,
-                kind: k,
-                interval,
-                counter: rng.below(interval as u16) as i32,
-            };
+            *c = Slot::new(x, y, k, interval, rng.below(interval as u16) as i32);
         }
         for c in clouds.iter_mut().filter(|c| c.empty()) {
             let k = match rng.pick(&[20, 30, 50]) {
@@ -466,19 +481,10 @@ impl Island {
             quota[k] -= 1;
             let x0 = if self.wind == 1 { -1000 } else { WIDTH };
             let (x, y) = rand_pos(rng, Some(size(&self.background, k)), x0, 1, 1000, 0x8B);
-            *c = Slot {
-                x,
-                y,
-                frame: 0,
-                kind: k,
-                interval: rng.below(5) as i32 + 6,
-                counter: 0,
-            };
+            *c = Slot::new(x, y, k, rng.below(5) as i32 + 6, 0);
         }
         for c in clouds.iter_mut().filter(|c| !c.empty()) {
-            let old = c.counter;
-            c.counter -= 1;
-            if old == 0 {
+            if c.tick() {
                 c.counter = c.interval;
                 c.x += self.wind;
             }
@@ -506,14 +512,7 @@ impl Island {
                     1 if self.cap_quota[0] > 0 => {
                         let interval = rng.below(30) as i32 + 10;
                         let (x, y) = rand_pos(rng, None, 0, 0xD6, WIDTH, 0x23);
-                        c = Slot {
-                            x,
-                            y,
-                            frame: 0,
-                            kind: 0,
-                            interval,
-                            counter: interval,
-                        };
+                        c = Slot::new(x, y, 0, interval, interval);
                         let point = (x, y, 1, 1);
                         if overlap(point, self.rect(TRUNK)) == 0 && overlap(point, self.rect(LEAVES)) == 0 {
                             self.cap_quota[0] -= 1;
@@ -530,14 +529,7 @@ impl Island {
                             (-70, 0x17E, 0x2C6, 0x8E),
                         ][kind - 1];
                         let (x, y) = rand_pos(rng, None, x0, y0, w, h);
-                        c = Slot {
-                            x,
-                            y,
-                            frame: 0,
-                            kind,
-                            interval,
-                            counter: interval,
-                        };
+                        c = Slot::new(x, y, kind, interval, interval);
                         self.cap_quota[kind] -= 1;
                     }
                     _ => {}
@@ -550,20 +542,14 @@ impl Island {
             let mut sprite = None;
             if c.kind == 0 {
                 work.pixel(c.x, c.y, 15, Clip::FULL);
-                if moving {
-                    let old = c.counter;
-                    c.counter -= 1;
-                    if old == 0 {
-                        c = Slot::default();
-                        self.cap_quota[0] += 1;
-                    }
+                if moving && c.tick() {
+                    c = Slot::default();
+                    self.cap_quota[0] += 1;
                 }
             } else {
                 if moving {
                     c.x += self.wind;
-                    let old = c.counter;
-                    c.counter -= 1;
-                    if old == 0 {
+                    if c.tick() {
                         c.counter = c.interval;
                         c.frame += 1;
                     }
@@ -586,7 +572,7 @@ impl Island {
                 .wave_spots()
                 .iter()
                 .take(3)
-                .any(|w| overlap(r, self.rect((w.0, w.1, w.2, w.3))) == 2);
+                .any(|w| overlap(r, self.wave_rect(*w)) == 2);
             if !hidden {
                 work.sprite(s, c.x, c.y, 0, Clip::FULL);
                 self.redraw_island_over(work, r);
