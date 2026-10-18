@@ -12,6 +12,14 @@ use crate::assets::{AssetError, Result};
 
 const TAG_FIRST_RUN: u16 = 8;
 
+/// Tag states (low bits of `Tag::state`).
+const TAG_RUNNING: u16 = 1;
+const TAG_STOPPED: u16 = 2;
+/// Start requested: reset the tag's scenes, then run.
+const TAG_RESTART: u16 = 3;
+/// Start requested: run without resetting the tag's scenes.
+const TAG_CONTINUE: u16 = 4;
+
 struct Tag {
     id: u16,
     code: usize,
@@ -155,7 +163,7 @@ impl AdsRuntime {
         if let Some(i) = self.tag_index(id as i32) {
             let t = &mut self.tags[i];
             t.resume = None;
-            t.state = (t.state & TAG_FIRST_RUN) | 3;
+            t.state = (t.state & TAG_FIRST_RUN) | TAG_RESTART;
         }
     }
 
@@ -165,7 +173,7 @@ impl AdsRuntime {
             return false;
         };
         let st = self.tags[i].state & !TAG_FIRST_RUN;
-        if st == 4 || st == 1 {
+        if st == TAG_CONTINUE || st == TAG_RUNNING {
             return true;
         }
         self.tags[i].scenes.iter().any(|&s| {
@@ -390,13 +398,13 @@ impl AdsRuntime {
             }
             0x3010 => self.random(p + 2, rng),
             0xF000 => {
-                self.tags[self.cur].state = 2;
+                self.tags[self.cur].state = TAG_STOPPED;
                 None
             }
             0xF010 => {
                 let i = if a0 == -1 { Some(self.cur) } else { self.tag_index(a0) };
                 if let Some(i) = i {
-                    self.tags[i].state = 2;
+                    self.tags[i].state = TAG_STOPPED;
                     if i == self.cur {
                         return None;
                     }
@@ -407,7 +415,7 @@ impl AdsRuntime {
                 if let Some(i) = self.tag_index(a0) {
                     let t = &mut self.tags[i];
                     t.resume = None;
-                    t.state = (t.state & TAG_FIRST_RUN) | if op == 0xF200 { 4 } else { 3 };
+                    t.state = (t.state & TAG_FIRST_RUN) | if op == 0xF200 { TAG_CONTINUE } else { TAG_RESTART };
                 }
                 Some(p + 4)
             }
@@ -461,7 +469,7 @@ impl AdsRuntime {
             let flags = self.tags[t].state & !TAG_FIRST_RUN;
             for k in 0..self.tags[t].scenes.len() {
                 let s = self.tags[t].scenes[k];
-                if flags == 3 {
+                if flags == TAG_RESTART {
                     self.scenes[s].reset()
                 } else {
                     self.scenes[s].tag_state = flags
@@ -482,12 +490,12 @@ impl AdsRuntime {
             if let Some(r) = self.tags[t].resume {
                 p = r;
             }
-            if st == 3 || st == 4 {
-                self.tags[t].state = 1;
-                st = 1;
+            if st == TAG_RESTART || st == TAG_CONTINUE {
+                self.tags[t].state = TAG_RUNNING;
+                st = TAG_RUNNING;
             }
             self.cur = t;
-            if st == 1 {
+            if st == TAG_RUNNING {
                 self.run_block(p, env.rng);
             }
         }
