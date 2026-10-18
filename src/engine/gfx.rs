@@ -35,6 +35,16 @@ impl Clip {
         }
     }
 
+    /// The clip bounded to the canvas, or `None` when nothing is left.
+    fn visible(self) -> Option<Clip> {
+        Some(self.bounded()).filter(|c| c.x1 <= c.x2 && c.y1 <= c.y2)
+    }
+
+    /// Pixel index range of row `y` within the clip.
+    fn row(self, y: i32) -> (usize, usize) {
+        ((y * WIDTH + self.x1) as usize, (y * WIDTH + self.x2 + 1) as usize)
+    }
+
     fn bounded(self) -> Clip {
         Clip {
             x1: self.x1.max(0),
@@ -84,24 +94,22 @@ impl Canvas {
     }
 
     pub fn copy_rect_from(&mut self, src: &Canvas, x: i32, y: i32, w: i32, h: i32) {
-        let c = Clip::rect(x, y, w, h).bounded();
-        if c.x1 > c.x2 {
+        let Some(c) = Clip::rect(x, y, w, h).visible() else {
             return;
-        }
+        };
         for yy in c.y1..=c.y2 {
-            let a = (yy * WIDTH + c.x1) as usize;
-            let b = (yy * WIDTH + c.x2 + 1) as usize;
+            let (a, b) = c.row(yy);
             self.px[a..b].copy_from_slice(&src.px[a..b]);
         }
     }
 
     /// Copies the pixels of `r` (clipped to the canvas) out, row by row.
     pub fn save_rect(&self, r: Clip) -> Vec<u8> {
-        let c = r.bounded();
         let mut out = Vec::new();
-        if c.x1 <= c.x2 {
+        if let Some(c) = r.visible() {
             for y in c.y1..=c.y2 {
-                out.extend_from_slice(&self.px[(y * WIDTH + c.x1) as usize..=(y * WIDTH + c.x2) as usize]);
+                let (a, b) = c.row(y);
+                out.extend_from_slice(&self.px[a..b]);
             }
         }
         out
@@ -109,14 +117,13 @@ impl Canvas {
 
     /// Puts back what `save_rect` took for the same `r`.
     pub fn restore_rect(&mut self, r: Clip, saved: &[u8]) {
-        let c = r.bounded();
-        if c.x1 > c.x2 {
+        let Some(c) = r.visible() else {
             return;
-        }
+        };
         let w = (c.x2 - c.x1 + 1) as usize;
         for (row, y) in saved.chunks_exact(w).zip(c.y1..=c.y2) {
-            let a = (y * WIDTH + c.x1) as usize;
-            self.px[a..a + w].copy_from_slice(row);
+            let (a, b) = c.row(y);
+            self.px[a..b].copy_from_slice(row);
         }
     }
 
@@ -165,8 +172,8 @@ impl Canvas {
         }
     }
 
-    #[allow(clippy::too_many_arguments)] // mirrors the original GDI-backed primitive
     /// TTM rectangle: `filled` draws a 1px `fg` border around a `bg` interior.
+    #[allow(clippy::too_many_arguments)] // mirrors the original GDI-backed primitive
     pub fn rect(&mut self, x: i32, y: i32, w: i32, h: i32, fg: u8, bg: u8, filled: bool, clip: Clip) {
         let clip = clip.bounded();
         if w <= 0 || h <= 0 {
