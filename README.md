@@ -4,7 +4,7 @@
 
 ### Johnny Castaway, the classic 1992 screensaver, running natively on Windows, macOS and Linux.
 
-<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="640">
+<img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="320">
 
 &nbsp;
 
@@ -16,7 +16,7 @@
 
 </div>
 
-Open Scrantic brings the original *Screen Antics: Johnny Castaway* screensaver (Sierra/Dynamix, 1992)
+Open Scrantic brings the original _Screen Antics: Johnny Castaway_ screensaver (Sierra/Dynamix, 1992)
 back to modern computers: a free, open-source Rust reimplementation of the classic Windows 3.1
 screensaver. Watch Johnny go about his days on his tiny island while a story unfolds from
 one day to the next, with the same behavior as the original.
@@ -34,7 +34,7 @@ one day to the next, with the same behavior as the original.
    [latest release](https://github.com/glauberlima/open-scrantic/releases/latest):
 
    | System  | File                            |
-   |---------|---------------------------------|
+   | ------- | ------------------------------- |
    | Windows | `open-scrantic-windows-x64.exe` |
    | macOS   | `open-scrantic-macos`           |
    | Linux   | `open-scrantic-linux-x64`       |
@@ -60,11 +60,11 @@ The program is not code-signed, so your system may warn about it.
 
 ## What you need
 
-The three files from the original *Screen Antics: Johnny Castaway* installation (Windows 3.1), all in
+The three files from the original _Screen Antics: Johnny Castaway_ installation (Windows 3.1), all in
 one folder next to the program:
 
 | File           | Size      | What it is                           |
-|----------------|-----------|--------------------------------------|
+| -------------- | --------- | ------------------------------------ |
 | `SCRANTIC.SCR` | 295,952   | the original screensaver program     |
 | `RESOURCE.MAP` | 1,461     | index of the screensaver's resources |
 | `RESOURCE.001` | 1,175,645 | the images and animation scripts     |
@@ -73,7 +73,7 @@ one folder next to the program:
 <summary>Check that your files are the right ones</summary>
 
 | File           | SHA-256                                                            |
-|----------------|--------------------------------------------------------------------|
+| -------------- | ------------------------------------------------------------------ |
 | `SCRANTIC.SCR` | `7811b526b36bba2f08326d7a680f2f063190b4278e5a36393fde5a02080b0262` |
 | `RESOURCE.MAP` | `3d9ec330aab96bbe5a44ce34f5945703862e82b195088590b7adfef5d7345da7` |
 | `RESOURCE.001` | `df9c2213f7c0abacf4e302cb53a476f9f220579c07ba350b167e351eed548eae` |
@@ -91,12 +91,12 @@ case-insensitive.
 
 **Options** (`0` = off, `1` = on; default `1`):
 
-| Key          | Effect when off                           |
-|--------------|-------------------------------------------|
-| `Background` | no island or ocean background             |
-| `Clouds`     | no clouds in the sky                      |
-| `Waves`      | no shore waves or ocean whitecaps         |
-| `Sounds`     | sound effects muted                       |
+| Key          | Effect when off                   |
+| ------------ | --------------------------------- |
+| `Background` | no island or ocean background     |
+| `Clouds`     | no clouds in the sky              |
+| `Waves`      | no shore waves or ocean whitecaps |
+| `Sounds`     | sound effects muted               |
 
 To start over, delete `SCRANTIC.INI`. If it contains an invalid value, it is replaced by the
 defaults, story progress included.
@@ -106,12 +106,12 @@ defaults, story progress included.
 
 Maintained by the program; edit only to force a chapter or time of day.
 
-| Key            | Default | Meaning                                                              |
-|----------------|---------|----------------------------------------------------------------------|
-| `NumDays`      | `0`     | story chapter of the day, 1–11; advances once per calendar day       |
-| `Introduction` | `0`     | next chapter to show; the chapter plays when it is `<= NumDays`      |
-| `CurrentYear`, `CurrentMonth`, `CurrentDay` | `0` | date of the last run, used to detect a new day |
-| `StartTime`    | `900`   | start of the 16-half-hour day/night cycle, as `HHMM`                 |
+| Key                                         | Default | Meaning                                                         |
+| ------------------------------------------- | ------- | --------------------------------------------------------------- |
+| `NumDays`                                   | `0`     | story chapter of the day, 1–11; advances once per calendar day  |
+| `Introduction`                              | `0`     | next chapter to show; the chapter plays when it is `<= NumDays` |
+| `CurrentYear`, `CurrentMonth`, `CurrentDay` | `0`     | date of the last run, used to detect a new day                  |
+| `StartTime`                                 | `900`   | start of the 16-half-hour day/night cycle, as `HHMM`            |
 
 An out-of-range `NumDays` (below 2 or above 11) restarts the story at chapter 1 on the next day
 change.
@@ -138,8 +138,8 @@ else who remembers it.
 
 ## About the project
 
-Open Scrantic is a reverse-engineered reimplementation of *Screen Antics: Johnny
-Castaway* (Sierra/Dynamix, 1992), rebuilt from the disassembly of the original Windows 3.1
+Open Scrantic is a reverse-engineered reimplementation of _Screen Antics: Johnny
+Castaway_ (Sierra/Dynamix, 1992), rebuilt from the disassembly of the original Windows 3.1
 screensaver. The program contains only the engine logic.
 
 ```text
@@ -174,7 +174,7 @@ target/release/open-scrantic
 The screensaver files and `SCRANTIC.INI` are always read from the directory of the executable.
 
 | Option          | Effect                                                       |
-|-----------------|--------------------------------------------------------------|
+| --------------- | ------------------------------------------------------------ |
 | `--fullscreen`  | start fullscreen instead of windowed                         |
 | `--dedither`    | blend the 1992 checkerboard dithering into solid colors      |
 | `--soft-audio`  | improve the sounds: resample, hide the 8-bit hiss, fade cuts |
@@ -243,7 +243,7 @@ checking the behavior against the original screensaver.
 
 ## Legal notice
 
-*Screen Antics: Johnny Castaway* is a trademark and copyright of its respective owners (Sierra /
+_Screen Antics: Johnny Castaway_ is a trademark and copyright of its respective owners (Sierra /
 Dynamix). This is an independent, non-commercial interoperability project, not affiliated with or
 endorsed by them. It does not include or distribute any original screensaver data.
 
