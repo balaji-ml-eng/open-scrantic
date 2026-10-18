@@ -31,6 +31,15 @@ const IDLE_ADS: u8 = 0xFF;
 const PLAN_BUDGET: i32 = 300;
 /// Percentages of repeating a repeatable scene 1..=6 times (the six weights pushed at seg4:0aac..0ac1).
 const REPEAT_WEIGHTS: [u16; 6] = [10, 20, 30, 20, 10, 10];
+/// Scene roles in `SceneDef::flags` (also the `pick` masks) and the layout flag read by `step`.
+const SCENE_OPENING: u32 = 0x01;
+const SCENE_MIDDLE: u32 = 0x02;
+const SCENE_FINAL: u32 = 0x04;
+const SCENE_REPEATABLE: u32 = 0x08;
+const SCENE_STORY: u32 = 0x80;
+const SCENE_SHIFTED: u32 = 0x400;
+/// Longest plan the original builds (seg4:08b9).
+const MAX_PLAN_LEN: usize = 298;
 /// Bound on the draws for a final scene; the original has none and can hang (see `plan_session`).
 const MAX_FINAL_PICKS: u32 = 1000;
 
@@ -94,6 +103,7 @@ pub struct Engine {
     forced_scene: Option<usize>,
     story_state: i32,
     new_session: bool,
+    debug: bool,
     sounds: Vec<u32>,
     /// Number of plan entries completed so far (diagnostics).
     pub scenes_done: u64,
@@ -137,6 +147,7 @@ impl Engine {
             story_scene: None,
             story_state: 0,
             new_session: false,
+            debug: std::env::var_os("OPEN_SCRANTIC_DEBUG").is_some(),
             forced_scene: None,
             sounds: Vec::new(),
             scenes_done: 0,
@@ -195,9 +206,9 @@ impl Engine {
 
     /// seg4:0d76 – weighted random scene matching `mask`, the day phase and the time budget.
     fn pick(&mut self, mask: u32, phase: i32, mut budget: i32) -> Option<usize> {
-        if mask == 4 {
+        if mask == SCENE_FINAL {
             budget = 999;
-        } else if mask == 0x80 {
+        } else if mask == SCENE_STORY {
             if self.rng.below(10) != 0 {
                 return None;
             }
@@ -209,7 +220,7 @@ impl Engine {
         let marked: Vec<bool> = scenes
             .iter()
             .map(|s| {
-                if mask == 0x80 && s.day as i32 == intro {
+                if mask == SCENE_STORY && s.day as i32 == intro {
                     return true;
                 }
                 s.flags & mask != 0
@@ -247,13 +258,24 @@ impl Engine {
         self.data.exe.scenes.len()
     }
 
+    /// `ADS:tag` of catalog scene `i` (`idle` for the walking scenes).
+    fn scene_name(&self, i: usize) -> String {
+        let s = &self.data.exe.scenes[i];
+        let ads = self.data.exe.ads_names.get(&s.ads_id).map_or("idle", String::as_str);
+        format!("{ads}:{}", s.ads_tag)
+    }
+
     /// Debug aid: one-line description of catalog scene `i` (`ADS:tag`, story day, flags, duration).
     pub fn scene_label(&self, i: usize) -> String {
         let s = &self.data.exe.scenes[i];
-        let ads = self.data.exe.ads_names.get(&s.ads_id).map_or("idle", String::as_str);
         format!(
-            "{ads}:{} day {} flags {:#x} phase {}..{} duration {}",
-            s.ads_tag, s.day, s.flags, s.min_phase, s.max_phase, s.duration
+            "{} day {} flags {:#x} phase {}..{} duration {}",
+            self.scene_name(i),
+            s.day,
+            s.flags,
+            s.min_phase,
+            s.max_phase,
+            s.duration
         )
     }
 
@@ -274,11 +296,11 @@ impl Engine {
         let duration = |e: &Self, i: usize| e.data.exe.scenes[i].duration as i32;
         let mut first = None;
         let mut fin = None;
-        if let Some(s) = self.pick(0x80, phase, 0)
+        if let Some(s) = self.pick(SCENE_STORY, phase, 0)
             && Some(s) != self.last_final
             && Some(s) != self.last_first
         {
-            if flags(self, s) & 4 != 0 {
+            if flags(self, s) & SCENE_FINAL != 0 {
                 fin = Some(s)
             } else {
                 first = Some(s)
@@ -289,20 +311,20 @@ impl Engine {
         let fin = loop {
             if let Some(f) = fin
                 && Some(f) != self.last_final
-                && !(first.is_some() && flags(self, f) & 1 != 0)
+                && !(first.is_some() && flags(self, f) & SCENE_OPENING != 0)
             {
                 break f;
             }
             attempts += 1;
             fin = if attempts < MAX_FINAL_PICKS {
-                self.pick(4, phase, budget)
+                self.pick(SCENE_FINAL, phase, budget)
             } else {
                 None
             };
             if fin.is_none() {
                 // Nothing fits the constraints (or only the previous final does): the original would
                 // spin forever; accept any final scene.
-                fin = (0..self.data.exe.scenes.len()).find(|&i| flags(self, i) & 4 != 0);
+                fin = (0..self.data.exe.scenes.len()).find(|&i| flags(self, i) & SCENE_FINAL != 0);
                 break fin.unwrap_or(0);
             }
         };
@@ -323,9 +345,9 @@ impl Engine {
 
         let mut plan = Vec::new();
         let mut pending_first = first;
-        if flags(self, fin) & 1 != 0 {
+        if flags(self, fin) & SCENE_OPENING != 0 {
             budget = 0;
-        } else if let Some(f) = pending_first.filter(|&f| flags(self, f) & 1 != 0) {
+        } else if let Some(f) = pending_first.filter(|&f| flags(self, f) & SCENE_OPENING != 0) {
             if self.rng.chance(50) {
                 plan.push(f);
                 pending_first = None;
@@ -335,7 +357,7 @@ impl Engine {
         } else {
             self.plan_opening(&mut plan, phase, &mut budget);
         }
-        while budget != 0 && plan.len() < 298 {
+        while budget != 0 && plan.len() < MAX_PLAN_LEN {
             if let Some(f) = pending_first
                 && self.rng.chance(5)
             {
@@ -343,9 +365,11 @@ impl Engine {
                 pending_first = None;
                 continue;
             }
-            let Some(s) = self.pick(2, phase, budget) else { break };
+            let Some(s) = self.pick(SCENE_MIDDLE, phase, budget) else {
+                break;
+            };
             let mut reps = 1;
-            if flags(self, s) & 8 != 0 {
+            if flags(self, s) & SCENE_REPEATABLE != 0 {
                 loop {
                     reps = self.rng.pick(&REPEAT_WEIGHTS) as i32;
                     if reps != 0 && !(reps > 1 && duration(self, s) * reps > budget) {
@@ -353,7 +377,7 @@ impl Engine {
                     }
                 }
             }
-            while reps > 0 && plan.len() < 298 {
+            while reps > 0 && plan.len() < MAX_PLAN_LEN {
                 plan.push(s);
                 budget -= duration(self, s);
                 self.island.apply_flags(flags(self, s));
@@ -368,7 +392,7 @@ impl Engine {
     }
 
     fn plan_opening(&mut self, plan: &mut Vec<usize>, phase: i32, budget: &mut i32) {
-        if let Some(s) = self.pick(1, phase, *budget) {
+        if let Some(s) = self.pick(SCENE_OPENING, phase, *budget) {
             plan.push(s);
             *budget -= self.data.exe.scenes[s].duration as i32;
             self.island.apply_flags(self.data.exe.scenes[s].flags);
@@ -408,16 +432,8 @@ impl Engine {
             self.config.num_days,
         );
         self.offset = self.island.ttm_offset(false);
-        if std::env::var_os("OPEN_SCRANTIC_DEBUG").is_some() {
-            let names: Vec<String> = self
-                .plan
-                .iter()
-                .map(|&i| {
-                    let s = &self.data.exe.scenes[i];
-                    let ads = self.data.exe.ads_names.get(&s.ads_id).map_or("idle", String::as_str);
-                    format!("{ads}:{}", s.ads_tag)
-                })
-                .collect();
+        if self.debug {
+            let names: Vec<String> = self.plan.iter().map(|&i| self.scene_name(i)).collect();
             eprintln!(
                 "session: phase {}, day {}/{}, island cfg {:#x} tide {} -> {}",
                 phase,
@@ -444,6 +460,26 @@ impl Engine {
         }
     }
 
+    fn walk_step(&mut self) {
+        self.walk.step(
+            &self.data.exe,
+            &mut self.rng,
+            &self.johnwalk,
+            &self.island,
+            &mut self.work,
+        );
+    }
+
+    /// Ends plan entry `si`: Johnny is left at the scene's end spot and the plan moves on.
+    fn complete_scene(&mut self, si: usize) {
+        let def = &self.data.exe.scenes[si];
+        self.walk.spot = def.spot_end as i32;
+        self.walk.hdg = def.hdg_end as i32;
+        self.pending[si] = true;
+        self.plan_idx += 1;
+        self.scenes_done += 1;
+    }
+
     /// One story/scheduler step (seg4:06bf), composing a new frame.
     pub fn step(&mut self, clock: &Clock) {
         if self.plan_idx >= self.plan.len() {
@@ -456,32 +492,16 @@ impl Engine {
         let def = self.data.exe.scenes[si].clone();
         let arrived = !self.pending[si] || self.walk.go_to(def.spot_start as i32, def.hdg_start as i32);
         if !arrived {
-            self.walk.step(
-                &self.data.exe,
-                &mut self.rng,
-                &self.johnwalk,
-                &self.island,
-                &mut self.work,
-            );
+            self.walk_step();
         } else if def.ads_id == IDLE_ADS {
             if self.pending[si] {
                 self.pending[si] = false;
                 self.idle_timer = self.rng.below(240) as u32 + 180;
                 self.walk.reset();
             }
-            self.walk.step(
-                &self.data.exe,
-                &mut self.rng,
-                &self.johnwalk,
-                &self.island,
-                &mut self.work,
-            );
+            self.walk_step();
             if self.idle_timer == 0 {
-                self.walk.spot = def.spot_end as i32;
-                self.walk.hdg = def.hdg_end as i32;
-                self.pending[si] = true;
-                self.plan_idx += 1;
-                self.scenes_done += 1;
+                self.complete_scene(si);
             }
         } else {
             if self.pending[si] {
@@ -490,7 +510,7 @@ impl Engine {
                     a.start_tag(def.ads_tag);
                 }
                 self.pending[si] = false;
-                self.offset = self.island.ttm_offset(def.flags & 0x400 != 0);
+                self.offset = self.island.ttm_offset(def.flags & SCENE_SHIFTED != 0);
             }
             let busy = match self.ads.as_mut() {
                 Some(ads) => {
@@ -511,17 +531,13 @@ impl Engine {
                 None => false,
             };
             if !busy {
-                if std::env::var_os("OPEN_SCRANTIC_DEBUG").is_some() {
+                if self.debug {
                     eprintln!(
                         "tick {}: finished plan entry {} ({}:{})",
                         self.now, self.plan_idx, def.ads_id, def.ads_tag
                     );
                 }
-                self.walk.spot = def.spot_end as i32;
-                self.walk.hdg = def.hdg_end as i32;
-                self.pending[si] = true;
-                self.plan_idx += 1;
-                self.scenes_done += 1;
+                self.complete_scene(si);
                 if self.walk.spot == 0 {
                     self.walk.spot = self.rng.below(6) as i32 + 1;
                 }

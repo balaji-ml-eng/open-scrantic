@@ -214,6 +214,12 @@ impl ApplicationHandler for App {
     }
 }
 
+/// Prints `error: {e}` and exits with status 1.
+fn fail(e: impl std::fmt::Display) -> ! {
+    eprintln!("error: {e}");
+    std::process::exit(1);
+}
+
 fn main() {
     let opts = match parse_args() {
         Ok(Some(o)) => o,
@@ -223,32 +229,14 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let data = match assets::ScreensaverData::load(&open_scrantic::app_dir()) {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("error: {e}");
-            std::process::exit(1);
-        }
-    };
+    let data = assets::ScreensaverData::load(&open_scrantic::app_dir()).unwrap_or_else(|e| fail(e));
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let engine = match Engine::new(data, Config::load(), seed) {
-        Ok(e) => e,
-        Err(e) => {
-            eprintln!("error: {e}");
-            std::process::exit(1);
-        }
-    };
+    let engine = Engine::new(data, Config::load(), seed).unwrap_or_else(|e| fail(e));
     let audio = audio::Audio::new(opts.soft_audio);
-    let event_loop = match EventLoop::new() {
-        Ok(el) => el,
-        Err(e) => {
-            eprintln!("error: {e}");
-            std::process::exit(1);
-        }
-    };
+    let event_loop = EventLoop::new().unwrap_or_else(|e| fail(e));
     let mut app = App {
         engine,
         audio,
