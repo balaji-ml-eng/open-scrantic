@@ -5,18 +5,7 @@
 
 use std::collections::HashMap;
 
-use super::{AssetError, Result};
-
-fn bytes(d: &[u8], start: usize, len: usize) -> Result<&[u8]> {
-    start
-        .checked_add(len)
-        .and_then(|end| d.get(start..end))
-        .ok_or_else(|| AssetError::Format("truncated SCRANTIC.SCR data".into()))
-}
-
-fn u16_at(d: &[u8], o: usize) -> Result<u16> {
-    Ok(u16::from_le_bytes(bytes(d, o, 2)?.try_into().unwrap()))
-}
+use super::{AssetError, Result, bytes, u16_at};
 
 /// One entry of the scene catalog (DS:0x1756, 17 bytes per record).
 #[derive(Clone, Debug)]

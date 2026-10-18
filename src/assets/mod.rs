@@ -37,6 +37,22 @@ impl From<std::io::Error> for AssetError {
 
 pub type Result<T> = std::result::Result<T, AssetError>;
 
+/// Bounds-checked slice of `len` bytes at `start`.
+fn bytes(d: &[u8], start: usize, len: usize) -> Result<&[u8]> {
+    start
+        .checked_add(len)
+        .and_then(|end| d.get(start..end))
+        .ok_or_else(|| AssetError::Format("truncated data".into()))
+}
+
+fn u16_at(d: &[u8], o: usize) -> Result<u16> {
+    Ok(u16::from_le_bytes(bytes(d, o, 2)?.try_into().unwrap()))
+}
+
+fn u32_at(d: &[u8], o: usize) -> Result<u32> {
+    Ok(u32::from_le_bytes(bytes(d, o, 4)?.try_into().unwrap()))
+}
+
 pub struct ScreensaverData {
     pub archive: Archive,
     pub exe: ExeData,
