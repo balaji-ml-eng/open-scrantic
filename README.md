@@ -42,7 +42,7 @@ one day to the next, with the same behavior as the original.
 2. **Put it in the same folder** as the three original screensaver files (`SCRANTIC.SCR`, `RESOURCE.MAP`
    and `RESOURCE.001`).
 3. **Run it.** It opens in a window; press **Esc** to exit. Start it with `--fullscreen` to fill the
-   screen.
+   screen. **F12** saves a screenshot (`-raw` as drawn, `-view` as shown) next to the executable.
 
 <details>
 <summary>Your system refuses to open the file?</summary>

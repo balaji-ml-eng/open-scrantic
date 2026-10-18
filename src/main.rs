@@ -32,7 +32,7 @@ Options:
   -h, --help      print this help and exit
 
 The original screensaver files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001) and SCRANTIC.INI are read
-from the directory of this executable. Esc exits.";
+from the directory of this executable. Esc exits; F12 saves a screenshot there.";
 
 struct Options {
     fullscreen: bool,
@@ -76,6 +76,8 @@ struct App {
     ticks: u64,
     fullscreen: bool,
     dedither: bool,
+    /// F12 was pressed; the next redraw saves the frame it draws.
+    screenshot: bool,
     /// The title screen has been requested once; until the first step it needs no further redraws.
     intro_drawn: bool,
 }
@@ -109,7 +111,35 @@ impl App {
         stepped
     }
 
+    /// Writes the current frame next to the executable: `-raw` is the 640x480 palette picture as the
+    /// engine drew it, `-view` is what the window shows (dedithering included) before scaling.
+    fn save_screenshot(&self) {
+        let c = Clock::now();
+        let name = format!(
+            "screenshot-{:04}{:02}{:02}-{:02}{:02}-{}",
+            c.year, c.month, c.day, c.hour, c.minute, self.steps
+        );
+        let px = &self.engine.frame().px;
+        let pal = &self.engine.palette;
+        let view = if self.dedither {
+            present::dedither(px, pal)
+        } else {
+            present::plain(px, pal)
+        };
+        for (suffix, frame) in [("raw", present::plain(px, pal)), ("view", view)] {
+            let path = open_scrantic::app_dir().join(format!("{name}-{suffix}.png"));
+            let png = present::png(WIDTH as usize, HEIGHT as usize, &frame);
+            match std::fs::write(&path, png) {
+                Ok(()) => eprintln!("saved {}", path.display()),
+                Err(e) => eprintln!("warning: cannot save {}: {e}", path.display()),
+            }
+        }
+    }
+
     fn redraw(&mut self) {
+        if std::mem::take(&mut self.screenshot) {
+            self.save_screenshot();
+        }
         let (Some(window), Some(surface)) = (&self.window, &mut self.surface) else {
             return;
         };
@@ -188,6 +218,14 @@ impl ApplicationHandler for App {
             {
                 event_loop.exit();
             }
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F12) =>
+            {
+                self.screenshot = true;
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+            }
             _ => {}
         }
     }
@@ -247,6 +285,7 @@ fn main() {
         ticks: 0,
         fullscreen: opts.fullscreen,
         dedither: opts.dedither,
+        screenshot: false,
         intro_drawn: false,
     };
     if let Err(e) = event_loop.run_app(&mut app) {

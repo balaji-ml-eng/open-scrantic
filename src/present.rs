@@ -105,6 +105,60 @@ pub fn scale(src: &[u32], dst: &mut [u32], w: usize, h: usize) {
     }
 }
 
+fn crc32(data: &[u8]) -> u32 {
+    let mut crc = !0u32;
+    for &b in data {
+        crc ^= b as u32;
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xEDB8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
+}
+
+/// PNG file (uncompressed deflate) of a `w` x `h` frame of packed RGB.
+pub fn png(w: usize, h: usize, frame: &[u32]) -> Vec<u8> {
+    let mut raw = Vec::with_capacity((w * 3 + 1) * h);
+    for row in frame.chunks(w) {
+        raw.push(0);
+        raw.extend(row.iter().flat_map(|&c| [(c >> 16) as u8, (c >> 8) as u8, c as u8]));
+    }
+    let mut z = vec![0x78, 0x01];
+    for (i, block) in raw.chunks(65535).enumerate() {
+        let last = (i + 1) * 65535 >= raw.len();
+        z.push(u8::from(last));
+        z.extend_from_slice(&(block.len() as u16).to_le_bytes());
+        z.extend_from_slice(&(!(block.len() as u16)).to_le_bytes());
+        z.extend_from_slice(block);
+    }
+    let (mut a, mut b) = (1u32, 0u32);
+    for &x in &raw {
+        a = (a + x as u32) % 65521;
+        b = (b + a) % 65521;
+    }
+    z.extend_from_slice(&((b << 16) | a).to_be_bytes());
+    let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut chunk = |tag: &[u8], data: &[u8]| {
+        out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        let mut c = tag.to_vec();
+        c.extend_from_slice(data);
+        out.extend_from_slice(&c);
+        out.extend_from_slice(&crc32(&c).to_be_bytes());
+    };
+    let mut ihdr = Vec::new();
+    ihdr.extend_from_slice(&(w as u32).to_be_bytes());
+    ihdr.extend_from_slice(&(h as u32).to_be_bytes());
+    ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
+    chunk(b"IHDR", &ihdr);
+    chunk(b"IDAT", &z);
+    chunk(b"IEND", &[]);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,6 +211,13 @@ mod tests {
         assert_ne!(out[10 * W], pack(pal()[2]));
         assert_eq!(out[20 * W + 30], out[21 * W + 30]);
         assert_eq!(out[40 * W..40 * W + 3], plain(&px, &pal())[40 * W..40 * W + 3]);
+    }
+
+    #[test]
+    fn png_has_signature_and_dimensions() {
+        let out = png(2, 1, &[0xFF0000, 0x00FF00]);
+        assert_eq!(&out[..8], b"\x89PNG\r\n\x1a\n");
+        assert_eq!(&out[16..24], [0, 0, 0, 2, 0, 0, 0, 1]);
     }
 
     #[test]
