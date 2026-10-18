@@ -2,7 +2,7 @@
 
 # 🏝️ Open Scrantic
 
-### Johnny Castaway, the classic 1993 screensaver, running natively on Windows, macOS and Linux.
+### Johnny Castaway, the classic 1992 screensaver, running natively on Windows, macOS and Linux.
 
 <img src="docs/images/open-scrantic-logo.png" alt="Open Scrantic — a castaway with a spyglass on a tropical island" width="640">
 
@@ -16,7 +16,7 @@
 
 </div>
 
-Open Scrantic brings the original *Screen Antics: Johnny Castaway* screensaver (Sierra/Dynamix, 1993)
+Open Scrantic brings the original *Screen Antics: Johnny Castaway* screensaver (Sierra/Dynamix, 1992)
 back to modern computers: a free, open-source Rust reimplementation of the classic Windows 3.1
 screensaver. Watch Johnny go about his days on his tiny island while a story unfolds from
 one day to the next, with the same behavior as the original.
@@ -139,7 +139,7 @@ else who remembers it.
 ## About the project
 
 Open Scrantic is a reverse-engineered reimplementation of *Screen Antics: Johnny
-Castaway* (Sierra/Dynamix, 1993), rebuilt from the disassembly of the original Windows 3.1
+Castaway* (Sierra/Dynamix, 1992), rebuilt from the disassembly of the original Windows 3.1
 screensaver. The program contains only the engine logic.
 
 ```text
@@ -176,7 +176,7 @@ The screensaver files and `SCRANTIC.INI` are always read from the directory of t
 | Option          | Effect                                                       |
 |-----------------|--------------------------------------------------------------|
 | `--fullscreen`  | start fullscreen instead of windowed                         |
-| `--dedither`    | blend the 1993 checkerboard dithering into solid colors      |
+| `--dedither`    | blend the 1992 checkerboard dithering into solid colors      |
 | `--soft-audio`  | improve the sounds: resample, hide the 8-bit hiss, fade cuts |
 | `-V, --version` | print the version and exit                                   |
 | `-h, --help`    | print the usage and exit                                     |

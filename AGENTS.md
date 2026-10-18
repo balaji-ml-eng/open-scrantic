@@ -4,7 +4,7 @@ Guidance for AI coding agents (and human contributors) working in this repositor
 
 ## What this is
 
-A reverse-engineered Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1993, Win16).
+A reverse-engineered Rust reimplementation of *Screen Antics: Johnny Castaway* (Sierra/Dynamix, 1992, Win16).
 The binary holds only the engine logic. At runtime it reads the **original installed screensaver files**
 from a directory: `SCRANTIC.SCR` (the original NE executable), `RESOURCE.MAP` and `RESOURCE.001`.
 Never commit screensaver data (the three files are git-ignored).

@@ -1,4 +1,4 @@
-//! open-scrantic: a modern reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1993).
+//! open-scrantic: a modern reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1992).
 //! Runs on the original, installed screensaver files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001).
 
 use std::num::NonZeroU32;
@@ -18,7 +18,7 @@ use open_scrantic::engine::{Clock, Engine, STEP_MS, TICK_MS};
 use open_scrantic::present;
 use open_scrantic::{assets, audio};
 
-/// The title screen stays up while the 1993 machine loaded the first session.
+/// The title screen stays up while the 1992 machine loaded the first session.
 const INTRO_HOLD: Duration = Duration::from_secs(2);
 
 const USAGE: &str = "\
@@ -26,7 +26,7 @@ Usage: open-scrantic [--fullscreen] [--dedither] [--soft-audio]
 
 Options:
   --fullscreen    start fullscreen instead of in a window
-  --dedither      blend the 1993 checkerboard dithering into solid colors
+  --dedither      blend the 1992 checkerboard dithering into solid colors
   --soft-audio    improve the sounds: resample to the device rate, hide the 8-bit hiss, fade cuts
   -V, --version   print the version and exit
   -h, --help      print this help and exit

@@ -1,7 +1,7 @@
 //! Data read from the original SCRANTIC.SCR (Win16 NE executable): sound effects and the
 //! logic tables (scene catalog, walk routes, RNG seed table, whitecap animations).
 //! Nothing from the original is embedded in this program; offsets below were found by
-//! disassembling the 1993 build and are validated against known strings at load time.
+//! disassembling the 1992 build and are validated against known strings at load time.
 
 use std::collections::HashMap;
 
@@ -76,7 +76,7 @@ impl ExeData {
             || ds.get(0x1D56..0x1D5F) != Some(b"WAVESFX%d".as_slice())
         {
             return Err(AssetError::Format(
-                "unsupported SCRANTIC.SCR build (expected the 1993 release)".into(),
+                "unsupported SCRANTIC.SCR build (expected the 1992 release)".into(),
             ));
         }
 

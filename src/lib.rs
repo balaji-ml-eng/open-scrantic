@@ -1,4 +1,4 @@
-//! open-scrantic: a reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1993)
+//! open-scrantic: a reimplementation of Screen Antics: Johnny Castaway (Sierra/Dynamix, 1992)
 //! that runs on the original, installed screensaver files.
 
 pub mod assets;
