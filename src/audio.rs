@@ -4,11 +4,13 @@
 
 use std::collections::HashMap;
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use rodio::buffer::SamplesBuffer;
-use rodio::{ChannelCount, DeviceSinkBuilder, MixerDeviceSink, Player, SampleRate, Source};
+use rodio::cpal::BufferSize;
+use rodio::{ChannelCount, CpalErrorKind, DeviceSinkBuilder, MixerDeviceSink, Player, SampleRate, Source};
 
 /// Rate of the original WAVE resources.
 const SOURCE_RATE: u32 = 11025;
@@ -17,6 +19,9 @@ const SOFT_CUTOFF: f32 = 0.6;
 /// Zero crossings on each side of the sinc kernel.
 const LOBES: f32 = 8.0;
 const FADE_MS: u32 = 3;
+/// Device buffer in frames (about 170 ms at 48 kHz). rodio's default of 50 ms underruns on some
+/// ALSA setups (USB DACs); latency does not matter for sound effects.
+const DEVICE_BUFFER: u32 = 8192;
 
 fn sinc(x: f32) -> f32 {
     if x.abs() < 1e-6 { 1.0 } else { (PI * x).sin() / (PI * x) }
@@ -137,6 +142,47 @@ enum Mode {
 pub struct Audio {
     sink: MixerDeviceSink,
     mode: Mode,
+    soft: bool,
+    /// Set by the stream's error callback when the device failed in a way an underrun does not explain.
+    broken: Arc<AtomicBool>,
+}
+
+/// Opens the default output device and builds the mode on top of it.
+fn open(soft: bool, broken: &Arc<AtomicBool>) -> Result<(MixerDeviceSink, Mode), String> {
+    let flag = Arc::clone(broken);
+    let mut sink = DeviceSinkBuilder::from_default_device()
+        .and_then(|b| {
+            b.with_buffer_size(BufferSize::Fixed(DEVICE_BUFFER))
+                .with_error_callback(move |e| {
+                    // An underrun is recovered by the backend; anything else can leave the stream dead.
+                    if e.kind() != CpalErrorKind::Xrun && !flag.swap(true, Ordering::Relaxed) {
+                        eprintln!("audio stream error: {e}");
+                    }
+                })
+                .open_stream()
+        })
+        .map_err(|e| e.to_string())?;
+    sink.log_on_drop(false);
+    let mode = if soft {
+        let rate = sink.config().sample_rate();
+        let mix = Arc::new(Mutex::new(Mix {
+            current: None,
+            fading: None,
+            fade_len: (rate.get() * FADE_MS / 1000).max(1),
+        }));
+        sink.mixer().add(Stream {
+            mix: Arc::clone(&mix),
+            rate,
+        });
+        Mode::Soft {
+            mix,
+            rate: rate.get(),
+            cache: HashMap::new(),
+        }
+    } else {
+        Mode::Plain { current: None }
+    };
+    Ok((sink, mode))
 }
 
 impl Audio {
@@ -144,38 +190,28 @@ impl Audio {
     /// `soft` resamples the sounds to the device rate, low-passes them to hide the hiss of the
     /// 8-bit samples and fades a cut sound out; without it they play as the original did.
     pub fn new(soft: bool) -> Option<Self> {
-        let mut sink = match DeviceSinkBuilder::open_default_sink() {
-            Ok(sink) => sink,
+        let broken = Arc::new(AtomicBool::new(false));
+        match open(soft, &broken) {
+            Ok((sink, mode)) => Some(Self {
+                sink,
+                mode,
+                soft,
+                broken,
+            }),
             Err(e) => {
                 eprintln!("warning: audio disabled: {e}");
-                return None;
+                None
             }
-        };
-        sink.log_on_drop(false);
-        let mode = if soft {
-            let rate = sink.config().sample_rate();
-            let mix = Arc::new(Mutex::new(Mix {
-                current: None,
-                fading: None,
-                fade_len: (rate.get() * FADE_MS / 1000).max(1),
-            }));
-            sink.mixer().add(Stream {
-                mix: Arc::clone(&mix),
-                rate,
-            });
-            Mode::Soft {
-                mix,
-                rate: rate.get(),
-                cache: HashMap::new(),
-            }
-        } else {
-            Mode::Plain { current: None }
-        };
-        Some(Self { sink, mode })
+        }
     }
 
     pub fn play(&mut self, bank: &HashMap<u32, Vec<f32>>, id: u32) {
         let Some(raw) = bank.get(&id) else { return };
+        if self.broken.swap(false, Ordering::Relaxed)
+            && let Ok((sink, mode)) = open(self.soft, &self.broken)
+        {
+            (self.sink, self.mode) = (sink, mode);
+        }
         match &mut self.mode {
             Mode::Plain { current } => {
                 let player = Player::connect_new(self.sink.mixer());
