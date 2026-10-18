@@ -29,6 +29,8 @@ pub const STEP_MS: u64 = 55;
 const STORY_CHIME: u32 = 25;
 const IDLE_ADS: u8 = 0xFF;
 const PLAN_BUDGET: i32 = 300;
+/// Percentages of repeating a repeatable scene 1..=6 times (the six weights pushed at seg4:0aac..0ac1).
+const REPEAT_WEIGHTS: [u16; 6] = [10, 20, 30, 20, 10, 10];
 /// Bound on the draws for a final scene; the original has none and can hang (see `plan_session`).
 const MAX_FINAL_PICKS: u32 = 1000;
 
@@ -345,7 +347,7 @@ impl Engine {
             let mut reps = 1;
             if flags(self, s) & 8 != 0 {
                 loop {
-                    reps = self.rng.pick(&[10, 20, 30, 20, 10]) as i32;
+                    reps = self.rng.pick(&REPEAT_WEIGHTS) as i32;
                     if reps != 0 && !(reps > 1 && duration(self, s) * reps > budget) {
                         break;
                     }
@@ -558,6 +560,11 @@ mod tests {
         for (&id, name) in &data.exe.ads_names {
             AdsRuntime::load(&data.archive, id, name).unwrap_or_else(|e| panic!("{name}: {e}"));
         }
+    }
+
+    #[test]
+    fn repeat_weights_cover_the_whole_draw() {
+        assert_eq!(REPEAT_WEIGHTS.iter().sum::<u16>(), 100);
     }
 
     #[test]
