@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.1 — 2026-10-18
+
+### Documentation
+
+- Use a transparent, optimized logo at half the display size ([569ee39](https://github.com/glauberlima/open-scrantic/commit/569ee39aa3849aeec27c24ae454a29362fed7677))
+
+
+### Performance
+
+- Iterate scene order by index instead of cloning it ([650097e](https://github.com/glauberlima/open-scrantic/commit/650097ea787a11948aa14d96a0b740b53f0aa05b))
+- Make SceneDef Copy to avoid a per-step clone ([3bc7b33](https://github.com/glauberlima/open-scrantic/commit/3bc7b33680be0f3945d7d2960ba43f379f9e0610))
+
+
+### Refactoring
+
+- Name scene flags, dedupe walk/scene completion, cache debug flag ([f8505bc](https://github.com/glauberlima/open-scrantic/commit/f8505bc38de5e98df0521d8d6d92dbd6f54e52ab))
+- Share clip visibility and row-range helpers ([5a99657](https://github.com/glauberlima/open-scrantic/commit/5a99657a35e2ccd2bed520e0715ead16cc523340))
+- Add Slot::new/tick and wave_rect helpers ([733d351](https://github.com/glauberlima/open-scrantic/commit/733d351f87660c115de7034600b41721504872d3))
+- Name tag state constants ([3a5cc25](https://github.com/glauberlima/open-scrantic/commit/3a5cc25b4cc9a8cbaeb042585d9335f174401e0d))
+- Share byte readers between exe and resource parsers ([6eab416](https://github.com/glauberlima/open-scrantic/commit/6eab416b1f7756b991b4f702830b7900e9b59dbb))
+
 ## v0.2.0 — 2026-10-18
 
 ### Bug Fixes
