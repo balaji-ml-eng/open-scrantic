@@ -489,7 +489,7 @@ impl Engine {
         self.work.px.copy_from_slice(&self.bg.px);
         let si = self.plan[self.plan_idx];
         self.island.step(&mut self.work, &mut self.rng);
-        let def = self.data.exe.scenes[si].clone();
+        let def = self.data.exe.scenes[si];
         let arrived = !self.pending[si] || self.walk.go_to(def.spot_start as i32, def.hdg_start as i32);
         if !arrived {
             self.walk_step();

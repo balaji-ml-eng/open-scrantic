@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use super::{AssetError, Result, bytes, u16_at};
 
 /// One entry of the scene catalog (DS:0x1756, 17 bytes per record).
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct SceneDef {
     pub weight: u8,
     pub spot_start: u8,
