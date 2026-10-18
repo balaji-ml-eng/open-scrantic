@@ -15,28 +15,39 @@ use winit::window::{Fullscreen, Window, WindowId};
 use open_scrantic::engine::config::Config;
 use open_scrantic::engine::gfx::{HEIGHT, WIDTH};
 use open_scrantic::engine::{Clock, Engine, STEP_MS, TICK_MS};
+use open_scrantic::present;
 use open_scrantic::{assets, audio};
 
 /// The title screen stays up while the 1993 machine loaded the first session.
 const INTRO_HOLD: Duration = Duration::from_secs(2);
 
 const USAGE: &str = "\
-Usage: open-scrantic [--fullscreen]
+Usage: open-scrantic [--fullscreen] [--dedither]
 
 Options:
   --fullscreen    start fullscreen instead of in a window
+  --dedither      blend the 1993 checkerboard dithering into solid colors
   -V, --version   print the version and exit
   -h, --help      print this help and exit
 
 The original screensaver files (SCRANTIC.SCR, RESOURCE.MAP, RESOURCE.001) and SCRANTIC.INI are read
 from the directory of this executable. Esc exits.";
 
+struct Options {
+    fullscreen: bool,
+    dedither: bool,
+}
+
 /// Parses the command line; `Ok(None)` means a message was printed and the program should exit.
-fn parse_args() -> Result<Option<bool>, String> {
-    let mut fullscreen = false;
+fn parse_args() -> Result<Option<Options>, String> {
+    let mut o = Options {
+        fullscreen: false,
+        dedither: false,
+    };
     for a in std::env::args().skip(1) {
         match a.as_str() {
-            "--fullscreen" => fullscreen = true,
+            "--fullscreen" => o.fullscreen = true,
+            "--dedither" => o.dedither = true,
             "-V" | "--version" => {
                 println!("open-scrantic {}", env!("CARGO_PKG_VERSION"));
                 return Ok(None);
@@ -48,7 +59,7 @@ fn parse_args() -> Result<Option<bool>, String> {
             _ => return Err(format!("unknown argument {a}\n\n{USAGE}")),
         }
     }
-    Ok(Some(fullscreen))
+    Ok(Some(o))
 }
 
 struct App {
@@ -60,6 +71,7 @@ struct App {
     steps: u64,
     ticks: u64,
     fullscreen: bool,
+    dedither: bool,
     /// The title screen has been requested once; until the first step it needs no further redraws.
     intro_drawn: bool,
 }
@@ -106,27 +118,13 @@ impl App {
         }
         let Ok(mut buf) = surface.buffer_mut() else { return };
         let (w, h) = (size.width as usize, size.height as usize);
-        let scale = (w as f64 / WIDTH as f64).min(h as f64 / HEIGHT as f64);
-        let (dw, dh) = ((WIDTH as f64 * scale) as usize, (HEIGHT as f64 * scale) as usize);
-        let (ox, oy) = ((w - dw) / 2, (h - dh) / 2);
-        let pal: Vec<u32> = self
-            .engine
-            .palette
-            .iter()
-            .map(|c| (c[0] as u32) << 16 | (c[1] as u32) << 8 | c[2] as u32)
-            .collect();
-        let cols: Vec<usize> = (0..dw)
-            .map(|x| (x * WIDTH as usize / dw).min(WIDTH as usize - 1))
-            .collect();
         let px = &self.engine.frame().px;
-        buf.fill(0);
-        for y in 0..dh {
-            let src = (y * HEIGHT as usize / dh).min(HEIGHT as usize - 1) * WIDTH as usize;
-            let dst = (y + oy) * w + ox;
-            for (x, &sx) in cols.iter().enumerate() {
-                buf[dst + x] = pal[px[src + sx] as usize];
-            }
-        }
+        let rgb = if self.dedither {
+            present::dedither(px, &self.engine.palette)
+        } else {
+            present::plain(px, &self.engine.palette)
+        };
+        present::scale(&rgb, &mut buf, w, h);
         let _ = buf.present();
     }
 }
@@ -213,8 +211,8 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
-    let fullscreen = match parse_args() {
-        Ok(Some(f)) => f,
+    let opts = match parse_args() {
+        Ok(Some(o)) => o,
         Ok(None) => return,
         Err(msg) => {
             eprintln!("{msg}");
@@ -255,7 +253,8 @@ fn main() {
         start: Instant::now(),
         steps: 0,
         ticks: 0,
-        fullscreen,
+        fullscreen: opts.fullscreen,
+        dedither: opts.dedither,
         intro_drawn: false,
     };
     if let Err(e) = event_loop.run_app(&mut app) {

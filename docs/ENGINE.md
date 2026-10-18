@@ -103,6 +103,9 @@ not "fix" them:
   size of decompressed data.
 - The final-scene pick gives up after a bounded number of draws instead of looping forever.
 - The title screen stays up for 2 s (on 1993 hardware it was visible while the first session loaded).
+- `--dedither` (`src/present.rs`, not in the original) replaces every 2x2 checkerboard (`a b / b a`)
+  with the linear-light average of its two colors; the dither of the original is this pattern in
+  two palette indices. It only affects the pixels sent to the window; off by default.
 - Ellipses and lines use their own rasterization, which may differ by 1 px from GDI.
 - The configuration dialog and the screensaver password were not reimplemented (options can be
   edited in the INI). Features this screensaver does not use (animated palettes, 256 colors, ADS

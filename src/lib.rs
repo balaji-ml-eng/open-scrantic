@@ -4,6 +4,7 @@
 pub mod assets;
 pub mod audio;
 pub mod engine;
+pub mod present;
 
 /// Directory of the running executable: where the screensaver files and `SCRANTIC.INI` live.
 pub fn app_dir() -> std::path::PathBuf {

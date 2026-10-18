@@ -1,5 +1,6 @@
 //! Headless run: steps the engine with a fixed wall clock and saves PNG snapshots.
 //! Usage: cargo run --example snapshot -- INSTALL_DIR OUT_DIR [STEPS] [EVERY] [HHMM] [SEED] [STORY_DAY] [SCENE|list]
+//! Environment: DEDITHER=1 blends checkerboard dithering; SIZE=WxH scales like the window.
 
 use std::fs;
 use std::path::Path;
@@ -8,6 +9,7 @@ use open_scrantic::assets::ScreensaverData;
 use open_scrantic::engine::config::Config;
 use open_scrantic::engine::gfx::{HEIGHT, WIDTH};
 use open_scrantic::engine::{Clock, Engine, STEP_MS, TICK_MS};
+use open_scrantic::present;
 
 fn crc32(data: &[u8]) -> u32 {
     let mut crc = !0u32;
@@ -135,18 +137,28 @@ fn main() {
             println!("step {step}: sounds {sounds:?}");
         }
         if step % every == 0 {
-            let rgb: Vec<u8> = engine
-                .frame()
-                .px
+            let px = &engine.frame().px;
+            let mut frame = if std::env::var_os("DEDITHER").is_some() {
+                present::dedither(px, &engine.palette)
+            } else {
+                present::plain(px, &engine.palette)
+            };
+            let (mut w, mut h) = (WIDTH as usize, HEIGHT as usize);
+            if let Ok(size) = std::env::var("SIZE") {
+                let (sw, sh) = size.split_once('x').unwrap_or_else(|| fail("SIZE must be WxH"));
+                (w, h) = (
+                    sw.parse().unwrap_or_else(|_| fail("invalid SIZE")),
+                    sh.parse().unwrap_or_else(|_| fail("invalid SIZE")),
+                );
+                let mut scaled = vec![0; w * h];
+                present::scale(&frame, &mut scaled, w, h);
+                frame = scaled;
+            }
+            let rgb: Vec<u8> = frame
                 .iter()
-                .flat_map(|&i| engine.palette[i as usize])
+                .flat_map(|&c| [(c >> 16) as u8, (c >> 8) as u8, c as u8])
                 .collect();
-            png(
-                &out.join(format!("step{step:05}.png")),
-                WIDTH as usize,
-                HEIGHT as usize,
-                &rgb,
-            );
+            png(&out.join(format!("step{step:05}.png")), w, h, &rgb);
         }
     }
 }
