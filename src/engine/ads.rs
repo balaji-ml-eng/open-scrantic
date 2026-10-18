@@ -503,7 +503,8 @@ impl AdsRuntime {
         // Execute (draw) the current frame of every running scene, in list order.
         let mut ran = false;
         let now = self.now;
-        for i in self.order.clone() {
+        for k in 0..self.order.len() {
+            let i = self.order[k];
             let (ttm_index, tag_state, old_state) = {
                 let s = &self.scenes[i];
                 (s.ttm, s.tag_state, s.state)
