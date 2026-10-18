@@ -24,9 +24,14 @@ fn average(a: [u8; 3], b: [u8; 3]) -> [u8; 3] {
     [mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2])]
 }
 
+/// Shortest alternating run (`a b a b`) taken as dither where a checkerboard thins out to one pixel.
+const MIN_RUN: usize = 4;
+
 /// RGB frame where every 2x2 checkerboard block (`a b / b a`, a != b) is replaced by the average of
 /// its two colors. The dither of the original is this pattern in two palette indices, so detection
-/// is exact index equality. A pixel in several blocks keeps the partner of the first one found.
+/// is exact index equality. Where a dithered area ends in a one-pixel line there is no block left,
+/// so pixels in a horizontal or vertical alternating run of `MIN_RUN` or more are blended too.
+/// A pixel in several blocks or runs keeps the partner of the first one found.
 pub fn dedither(px: &[u8], pal: &[[u8; 3]; 256]) -> Vec<u32> {
     let mut partner: Vec<Option<u8>> = vec![None; W * H];
     for y in 0..H - 1 {
@@ -37,6 +42,30 @@ pub fn dedither(px: &[u8], pal: &[[u8; 3]; 256]) -> Vec<u32> {
                 for (j, q) in [(i, b), (i + 1, a), (i + W, a), (i + W + 1, b)] {
                     partner[j].get_or_insert(q);
                 }
+            }
+        }
+    }
+    for (lines, len, along, across) in [(H, W, 1, W), (W, H, W, 1)] {
+        for line in 0..lines {
+            let base = line * across;
+            let mut start = 0;
+            for x in 1..=len {
+                let continues = x < len
+                    && px[base + x * along] != px[base + (x - 1) * along]
+                    && (x == 1 || px[base + x * along] == px[base + (x - 2) * along]);
+                if continues {
+                    continue;
+                }
+                // An end pixel equal to the pixel outside the run is the edge of a solid area, not dither.
+                let lo = start + usize::from(start > 0 && px[base + start * along] == px[base + (start - 1) * along]);
+                let hi = x - usize::from(x < len && px[base + x * along] == px[base + (x - 1) * along]);
+                if hi.saturating_sub(lo) >= MIN_RUN {
+                    for k in lo..hi {
+                        let neighbor = if k > lo { k - 1 } else { k + 1 };
+                        partner[base + k * along].get_or_insert(px[base + neighbor * along]);
+                    }
+                }
+                start = x;
             }
         }
     }
@@ -109,6 +138,25 @@ mod tests {
             px[20 * W + x] = 2; // one-pixel line
         }
         assert_eq!(dedither(&px, &pal()), plain(&px, &pal()));
+    }
+
+    #[test]
+    fn one_pixel_alternating_lines_are_blended_but_short_ones_are_kept() {
+        let mut px = vec![1u8; W * H];
+        for x in 0..6 {
+            px[10 * W + x] = if x % 2 == 0 { 2 } else { 1 };
+        }
+        for y in 0..6 {
+            px[(20 + y) * W + 30] = if y % 2 == 0 { 2 } else { 1 };
+        }
+        for x in 0..3 {
+            px[40 * W + x] = if x % 2 == 0 { 2 } else { 3 };
+        }
+        let out = dedither(&px, &pal());
+        assert_eq!(out[10 * W], out[10 * W + 1]);
+        assert_ne!(out[10 * W], pack(pal()[2]));
+        assert_eq!(out[20 * W + 30], out[21 * W + 30]);
+        assert_eq!(out[40 * W..40 * W + 3], plain(&px, &pal())[40 * W..40 * W + 3]);
     }
 
     #[test]
