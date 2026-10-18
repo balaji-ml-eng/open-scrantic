@@ -22,11 +22,12 @@ use open_scrantic::{assets, audio};
 const INTRO_HOLD: Duration = Duration::from_secs(2);
 
 const USAGE: &str = "\
-Usage: open-scrantic [--fullscreen] [--dedither]
+Usage: open-scrantic [--fullscreen] [--dedither] [--soft-audio]
 
 Options:
   --fullscreen    start fullscreen instead of in a window
   --dedither      blend the 1993 checkerboard dithering into solid colors
+  --soft-audio    improve the sounds: resample to the device rate, hide the 8-bit hiss, fade cuts
   -V, --version   print the version and exit
   -h, --help      print this help and exit
 
@@ -36,6 +37,7 @@ from the directory of this executable. Esc exits.";
 struct Options {
     fullscreen: bool,
     dedither: bool,
+    soft_audio: bool,
 }
 
 /// Parses the command line; `Ok(None)` means a message was printed and the program should exit.
@@ -43,11 +45,13 @@ fn parse_args() -> Result<Option<Options>, String> {
     let mut o = Options {
         fullscreen: false,
         dedither: false,
+        soft_audio: false,
     };
     for a in std::env::args().skip(1) {
         match a.as_str() {
             "--fullscreen" => o.fullscreen = true,
             "--dedither" => o.dedither = true,
+            "--soft-audio" => o.soft_audio = true,
             "-V" | "--version" => {
                 println!("open-scrantic {}", env!("CARGO_PKG_VERSION"));
                 return Ok(None);
@@ -237,7 +241,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let audio = audio::Audio::new();
+    let audio = audio::Audio::new(opts.soft_audio);
     let event_loop = match EventLoop::new() {
         Ok(el) => el,
         Err(e) => {

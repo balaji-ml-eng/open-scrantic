@@ -173,12 +173,13 @@ target/release/open-scrantic
 
 The screensaver files and `SCRANTIC.INI` are always read from the directory of the executable.
 
-| Option          | Effect                                                  |
-|-----------------|---------------------------------------------------------|
-| `--fullscreen`  | start fullscreen instead of windowed                    |
-| `--dedither`    | blend the 1993 checkerboard dithering into solid colors |
-| `-V, --version` | print the version and exit                              |
-| `-h, --help`    | print the usage and exit                                |
+| Option          | Effect                                                       |
+|-----------------|--------------------------------------------------------------|
+| `--fullscreen`  | start fullscreen instead of windowed                         |
+| `--dedither`    | blend the 1993 checkerboard dithering into solid colors      |
+| `--soft-audio`  | improve the sounds: resample, hide the 8-bit hiss, fade cuts |
+| `-V, --version` | print the version and exit                                   |
+| `-h, --help`    | print the usage and exit                                     |
 
 The release profile is optimized and portable (fat LTO, a single codegen unit, `panic = "abort"`,
 stripped symbols). For a binary tuned to the build machine only (it may not run on older CPUs):

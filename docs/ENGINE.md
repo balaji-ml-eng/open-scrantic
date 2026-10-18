@@ -106,6 +106,9 @@ not "fix" them:
 - `--dedither` (`src/present.rs`, not in the original) replaces every 2x2 checkerboard (`a b / b a`)
   with the linear-light average of its two colors; the dither of the original is this pattern in
   two palette indices. It only affects the pixels sent to the window; off by default.
+- `--soft-audio` (`src/audio.rs`, not in the original, off by default) resamples the 11,025 Hz sounds to
+  the device rate, low-passes them and fades a cut sound out over 3 ms. Which sound plays when is
+  unchanged.
 - Ellipses and lines use their own rasterization, which may differ by 1 px from GDI.
 - The configuration dialog and the screensaver password were not reimplemented (options can be
   edited in the INI). Features this screensaver does not use (animated palettes, 256 colors, ADS

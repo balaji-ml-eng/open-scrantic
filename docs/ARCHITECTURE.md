@@ -193,8 +193,12 @@ way, picking randomly at 180°, and advances one frame every 4 ticks.
 
 Scenes request sounds by `WAVESFXn` number into `Env::sounds`. `Engine::take_sounds` hands the
 queue to `main.rs` after each step, which plays them through `Audio` unless `Sounds=0`. Samples
-are decoded once at load into `f32` (8-bit, 11,025 Hz, mono). `Audio::play` drops the previous
-`Player`, which reproduces `SND_ASYNC` cutting the previous sound.
+are decoded once at load into `f32` (8-bit, 11,025 Hz, mono).
+
+By default `Audio` plays the samples as they are and dropping the previous `Player` cuts the
+previous sound, as `SND_ASYNC` does. With `--soft-audio` (not in the original) each sound is
+resampled on first use to the device rate with a low-passed Lanczos-windowed sinc and cached, one
+endless mono `Stream` feeds the mixer, and `Audio::play` fades the sound it cuts over 3 ms.
 
 ## Persistence
 
