@@ -21,7 +21,7 @@ Toolchain is pinned to Rust 1.99.1 (`rust-toolchain.toml`), edition 2024.
 
 ```sh
 cargo build --release                                   # optimized binary: target/release/open-scrantic
-cp SCRANTIC.SCR RESOURCE.MAP RESOURCE.001 target/release/ && target/release/open-scrantic [--fullscreen]   # screensaver files + SCRANTIC.INI live next to the binary; Esc exits
+cp SCRANTIC.SCR RESOURCE.MAP RESOURCE.001 target/release/ && target/release/open-scrantic [--fullscreen] [--dedither] [--soft-audio]   # screensaver files + SCRANTIC.INI live next to the binary; Esc exits
 cargo clippy --all-targets                              # must stay at zero warnings
 cargo fmt --check                                       # max_width = 120
 OPEN_SCRANTIC_DATA=/path/to/install cargo test          # data-dependent tests silently pass without it
@@ -33,6 +33,7 @@ cargo run --release --example snapshot -- INSTALL_DIR OUT_DIR [STEPS] [EVERY] [H
 The `snapshot` example runs the engine headless with a fixed clock and writes PNGs; it is the way
 to verify rendering changes (e.g. `STORY_DAY` presets a story chapter, `HHMM` picks day/night). `SCENE` forces one catalog scene as the whole session (`list` prints the
 catalog with indices); story scenes have `day` > 0 and some need a late `HHMM` (their phase range).
+`DEDITHER=1` applies `--dedither` to the PNGs and `SIZE=WxH` scales them as a window of that size would.
 
 `Cargo.toml` denies all rustc and clippy warnings (`[lints]`) and forbids `unsafe`, so any warning
 fails the build. `clippy::pedantic` is deliberately not enabled: many `as` casts intentionally
@@ -45,6 +46,8 @@ A longer write-up (startup, clocks, frame pipeline, story planning, scheduler) i
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the summary below is what to know before editing.
 
 Crate is a library (`src/lib.rs`) plus the fullscreen binary (`src/main.rs`) and the `snapshot` example.
+`present.rs` (frame to window pixels, optional dedithering) and `audio.rs` (rodio, optional soft mode)
+are presentation only: neither is in the original and both default to its behavior.
 
 - **`assets/`** — `resource.rs` parses the Dynamix archive (chunked resources, RLE/LZW, 4 bpp
   BMP/SCR, PAL, TTM split into frames at `0x0FF0`, ADS). `exe.rs` reads the NE executable: the

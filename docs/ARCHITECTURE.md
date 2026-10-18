@@ -37,7 +37,7 @@ Three layers, with dependencies pointing downward only:
 
 | Layer     | Modules                                             | Knows about                          |
 |-----------|-----------------------------------------------------|--------------------------------------|
-| Front end | `main.rs`, `audio.rs`                               | window, input, sound device, clocks  |
+| Front end | `main.rs`, `present.rs`, `audio.rs`                 | window, input, sound device, clocks  |
 | Engine    | `engine/*`                                          | scripts, story, drawing; no I/O      |
 | Assets    | `assets/*`                                          | file formats; no engine state        |
 
@@ -56,7 +56,8 @@ Three layers, with dependencies pointing downward only:
 | `engine/gfx.rs`        | 640×480 palette-indexed `Canvas` with the GDI-like primitives the original used                 | GDI calls      |
 | `engine/rng.rs`        | Additive lagged generator seeded from the executable's table                                    | `seg4:1e86`    |
 | `engine/config.rs`     | `SCRANTIC.INI` read/write with the original keys                                                | —              |
-| `audio.rs`             | One-channel sound playback with `sndPlaySound(SND_ASYNC)` semantics (rodio)                     | —              |
+| `present.rs`           | Frame to window pixels: palette lookup, optional dedithering, scaling (pure functions)          | —              |
+| `audio.rs`             | One-channel sound playback with `sndPlaySound(SND_ASYNC)` semantics (rodio); optional soft mode | —              |
 | `main.rs`              | Window (winit), presenting (softbuffer), clocks, input, saving settings on exit                 | —              |
 | `examples/snapshot.rs` | Headless run with a fixed clock that writes PNGs                                                | —              |
 
@@ -121,10 +122,11 @@ Each step does the following, in order:
 6. Draw the holiday decoration, queue the chapter chime if the story scene just started.
 7. Swap `front` and `work`.
 
-`Engine::frame()` returns the front canvas. `main.rs` converts it to the window: it scales by
-`min(width/640, height/480)` with nearest-neighbor sampling, centers it with black bars and maps
-palette indices to RGB through `Engine::palette`. The initial window is the largest whole
-multiple of 640×480 that fits in 80% of the screen.
+`Engine::frame()` returns the front canvas. `main.rs` converts it to RGB through `Engine::palette`
+(`present::plain`, or `present::dedither` with `--dedither`, which replaces each 2×2 checkerboard by
+the average of its two colors) and `present::scale` draws it into the window: it scales by
+`min(width/640, height/480)` with nearest-neighbor sampling and centers it with black bars. The
+initial window is the largest whole multiple of 640×480 that fits in 80% of the screen.
 
 ## Story: sessions and plans (`engine/mod.rs`)
 

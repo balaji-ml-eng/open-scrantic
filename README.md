@@ -203,7 +203,8 @@ Architecture (the full write-up, with the data flow and how a frame is produced,
 - `src/engine/` — the engine: TTM VM (`ttm.rs`), ADS VM and scene scheduler (`ads.rs`), island
   and ambient animation (`island.rs`), walking (`walk.rs`), story planning (`mod.rs`), the original
   random number generator (`rng.rs`), drawing primitives (`gfx.rs`), INI settings (`config.rs`).
-- `src/main.rs` — window (winit + softbuffer), clocks and input; `src/audio.rs` — sound (rodio).
+- `src/main.rs` — window (winit + softbuffer), clocks and input; `src/present.rs` — frame to window
+  pixels (dedithering, scaling); `src/audio.rs` — sound (rodio).
 
 See [`AGENTS.md`](AGENTS.md) for the full architecture notes and conventions.
 
