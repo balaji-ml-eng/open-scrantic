@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.2.0 — 2026-10-18
+
+### Bug Fixes
+
+- Use the six repeat weights for repeatable scenes ([32a4f13](https://github.com/glauberlima/open-scrantic/commit/32a4f1325f711889ead9ea957f9ca79dc34c82c3))
+
+
+### Documentation
+
+- Widen the README logo to 640 ([9733c79](https://github.com/glauberlima/open-scrantic/commit/9733c7960e053e5128c107836d47c0ceedd84219))
+- Add the "why" and a demo video ([cdcf8fe](https://github.com/glauberlima/open-scrantic/commit/cdcf8fe79c5397e200aea0715617860e511305ef))
+- Say screensaver instead of game and link the demo video ([2bdbd87](https://github.com/glauberlima/open-scrantic/commit/2bdbd87af4cd9641dd33739ba4681c0273f095aa))
+- Describe present.rs, --dedither and --soft-audio ([0362698](https://github.com/glauberlima/open-scrantic/commit/036269836f59fcaf397e81dc61a1e496af718441))
+- Fix the release year of the original to 1992 ([0d31acc](https://github.com/glauberlima/open-scrantic/commit/0d31acce24b7c75cfd15c2504ec0c9b614b98c24))
+
+
+### Features
+
+- Add optional dedithering (--dedither) ([be15eea](https://github.com/glauberlima/open-scrantic/commit/be15eea4669ec1285474f37d9a655898fdb9279d))
+- Add --soft-audio to resample, low-pass and fade the sounds ([2fb95dd](https://github.com/glauberlima/open-scrantic/commit/2fb95dd9d1c373393081e6ee501ae53658f28d83))
+
+
+### Refactoring
+
+- Rename GameData to ScreensaverData ([471632f](https://github.com/glauberlima/open-scrantic/commit/471632f58bd39976d8ab207c5acd699bf20eebd7))
+
 ## v0.1.1 — 2026-10-17
 
 ### Bug Fixes
