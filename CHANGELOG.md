@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.0 — 2026-10-18
+
+### Bug Fixes
+
+- Use a larger device buffer and reopen the device after stream errors ([278f4bd](https://github.com/glauberlima/open-scrantic/commit/278f4bd303516bf7b59320872dd02e768b37b13c))
+- Dedither one-pixel alternating lines at the edge of dithered areas ([330092c](https://github.com/glauberlima/open-scrantic/commit/330092c7371abf4e115c501e07889b914a3a30a1))
+
+
+### Documentation
+
+- Describe run dedithering and the audio buffer ([b5cb094](https://github.com/glauberlima/open-scrantic/commit/b5cb0943c7022d968e34ee6f57a82e76794135d2))
+
+
+### Features
+
+- Save a screenshot with F12 ([33111da](https://github.com/glauberlima/open-scrantic/commit/33111da3698aad3ff3dc539b3258be8276b61364))
+
 ## v0.2.1 — 2026-10-18
 
 ### Documentation
